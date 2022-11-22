@@ -134,104 +134,90 @@ char* result_to_string(result* rs) {
     return dresult_to_string(rs, true);
 }
 char* dresult_to_string(result* rs, bool nl) {
-    int dtype = rs->data_type;
-    int len_dtype = int_size(dtype);
-    int t_size = len_dtype + 10; // DataType: %dtype%
-    // if (nl) {
-    //     t_size += 1; // \n
-    // }
+    int h_size = 17; // DataType: Value: 
+    h_size += int_size(rs->data_type);
 
-    t_size += 7;
-    int v_size = 0;
-    ResArrD* rad = NULL;
-    char** _rad_ar = NULL;
-    puts("in drts");
-    switch(dtype) {
+    // STUFF IN CASE OF ARRAY
+    char** _rarr;
+    ResArrD* _rad;
+    // END STUFF FOR ARRAY
+
+    int v_size;
+    switch (rs->data_type) {
         case INTEGER:
-            puts("int match");
             v_size = int_size((int) rs->data);
             break;
         case STRING:
-            puts("int string");
-            if (rs->data != NULL) {
-                v_size = strlen(rs->data);
-            } else {
-                v_size += 4;
-            }
+            v_size = strlen(rs->data);
             break;
         case CHAR:
-            puts("int char");
             v_size = 1;
             break;
         case RES_ARR:
-            puts("int res_arr");
-            rad = rs->data;
-            v_size = 2 + (rad->a_len * 2); // Commas, Spaces, Brackets
-            _rad_ar = malloc(rad->a_len * sizeof(char*) );
-            for (int i = 0; i < rad->a_len; i++) {
-                printf("rstring #%d\n", i);
-                _rad_ar[i] = dresult_to_string(rad->arr[i], false);
-                printf("rstred $%d\n", i);
-                v_size += strlen(_rad_ar[i]);
+            v_size = 4; // {  }
+            _rad = (ResArrD*) rs->data;
+            _rarr = malloc( _rad->a_len * sizeof(char*) );
+            for (int i = 0; i < _rad->a_len; i++) {
+                _rarr[i] = dresult_to_string(_rad->arr[i], false);
+                v_size += strlen(_rarr[i]);
+                if (i + 1 != _rad->a_len) {
+                    v_size += 2; // ", "
+                }
             }
-            puts("finish array rstr");
     }
-    int e_size = 3;
-    // if (nl) {
-    //     e_size = 2; // \n\n\0
-    // } else {
-    //     e_size = 3;// , \0
-    // }
 
-    char* str = malloc( (t_size + v_size + e_size)* sizeof(char) );
-    char* s = rs->data;
-    char _nl[] = "NULL";
+    int e_size = 3; // "\n\n\0" or ", \0"
+
+    // Writing type;
+    char* fstr = malloc( (h_size + v_size + e_size) * sizeof(char));
+
     char* format;
-    char _fn1[] = "DataType: %d\nValue: %s\n";
-    char _fn2[] = "DataType: %d, Value: %s";
-    int fi = 21;
+    char f_1[] = "DataType: %d\nValue: %s\n";
+    char f_2[] = "DataType: %d, Value: %s";\
+    int dpos;
     if (nl) {
-        format = _fn1;
+        format = f_1;
+        dpos = 21;
     } else {
-        format = _fn2;
-        fi = 22;
+        format = f_2;
+        dpos = 22;
     }
 
-    switch(dtype) {
-        case STRING:
-            if (rs->data == NULL) {
-                s = _nl;
-            }
-            break;
+    char* s = rs->data;
+    switch (rs->data_type) {
         case INTEGER:
-            format[fi] = 'd';
+            format[dpos] = 'd';
+            break;
+        case STRING:
             break;
         case CHAR:
-            format[fi] = 'c';
+            format[dpos] = 'c';
             break;
         case RES_ARR:
-            s = malloc((v_size+1) * sizeof(char));
-            int off = 0;
-            puts("creating full s str");
-            for (int i = 0; i < rad->a_len; i++) {
-                int slen = strlen(_rad_ar[i]);
-                memcpy(s+off, _rad_ar[i], slen);
-                printf("#1 %s\n", _rad_ar[i]);
-                off += slen;
-                if (i + 1 != rad->a_len) {
-                    memcpy(s+off+slen, ", ", 2);
-                    off += 2;
+            // WRITE DATA STRING TO s
+            s = malloc( (v_size + 1) * sizeof(char) );
+            s[0] = '{'; s[1] = ' ';
+            int off = 2;
+            for (int i = 0; i < _rad->a_len; i++) {
+                int l = strlen(_rarr[i]);
+                if (i + 1 != _rad->a_len) {
+                    sprintf(s + off, "%s, ", _rarr[i]);
+                    off += l + 2;
+                } else {
+                    memcpy(s + off, _rarr[i], l);
+                    off += l;
                 }
-                free(_rad_ar[i]);
+                free(_rarr[i]);
             }
-            puts("finish s str");
-            s[off] = '\0';
-            printf("wowo: %s\n", s);
-            free(_rad_ar);
-            printf("%s\n", s);
+            free(_rarr);
+            strcpy(s+off, " }");
     }
-    sprintf(str, format, dtype, s);
-    return str;
+    sprintf(fstr, format, rs->data_type, s);
+    if (s != rs->data) {
+        free(s);
+    }
+
+    return fstr;
 }
 
 ResArrD* create_res_arr(result** arr, int len) {
