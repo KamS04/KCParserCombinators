@@ -110,6 +110,9 @@ state* _sOP(void* data, char* target, state* i_state) {
     parser** ps = it->parsers;
     state* s_state = i_state;
     result** resarr = malloc( it->p_size * sizeof(result*) );
+    for (int i = 0; i < it->p_size; i++) {
+        resarr[i] = NULL;
+    }
     bool sequenceBreak = false;
     for (int i = 0; i < it->p_size; i++) {
         parser* cp = ps[i];
@@ -165,15 +168,24 @@ parser* lookAhead(parser* p) {
 
 mapresult* _bM(result* res) {
     mapresult* mr = malloc(sizeof(mapresult));
-    mr->dealloc_old = true;
+    mr->dealloc_old = false;
     if (res->data_type != RES_ARR) {
         puts("You've got to be bullshitting me. How tf do u have a sequence");
         puts("That isn't outputting an array? WTF");
         exit(3);
     }
-    result** p = (result**) res->data;
+
+    ResArrD* rad = (ResArrD*) res->data;
+    result** p = (result**) rad->arr;
     mr->res = p[1];
-    p[2] = NULL;
+
+    if (p[0] != NULL) {
+        deallocate_result(p[0]);
+    }
+    if (p[2] != NULL) {
+        deallocate_result(p[2]);
+    }
+
     return mr;
 }
 parser* between(parser* before, parser* get, parser* after) {
@@ -192,49 +204,70 @@ typedef struct {
 state* _sPB(void* data, char* target, state* i_state) {
     _tpit* it = (_tpit*) data;
     #define res_arr_type result*
-    ALLOCATE(res_arr, 10);
+    ALLOCATE_SN(res_arr, 10, true, NULL);
     
-    state *v_state, *s_state, *e_state;
+    state* v_state = NULL;
+    state* s_state = NULL;
+    state* e_state = NULL;
     state* n_state = i_state;
 
     while (true) {
+        printf("%s\n", state_to_string(n_state));
         v_state = evaluate(it->p1, target, n_state);
-        s_state = evaluate(it->p2, target, v_state);
-
         if (v_state->is_error) {
+            puts("vstate errored so breaking");
             e_state = v_state;
             break;
-        } else {
-            APPEND(res_arr, v_state->result);
         }
+        APPEND(res_arr, v_state->result);
 
+        s_state = evaluate(it->p2, target, v_state);
         if (s_state->is_error) {
             break;
         }
+
+        n_state = s_state;
     }
 
     if (e_state != NULL) {
+        puts("in estate is not null");
         for (int i = 0 ; i < ARR_SIZE(res_arr); i++) {
+            printf("estate dealloc loop #%d\n", i);
             if (MUTARR(res_arr)[i] != NULL) {
                 deallocate_result(MUTARR(res_arr)[i]);
             }
         }
+        puts("done estate loop");
         free(MUTARR(res_arr));
+        puts("freed arr");
         if (s_state != NULL) {
+            puts("deallocing s_state");
             deallocate_state(s_state);
         }
+        puts("retting e_state");
+        printf("%p retting\n", e_state);
         return e_state;
     } else {
+        puts("succ");
         SHRINK_TO_NEEDED(res_arr);
-        result* res = create_resarr_result(MUTARR(res_arr), ARR_SIZE(res_arr));
+        printf("after shrink %d\n", SIZEOF(res_arr));
+        puts("shrink fin");
+        result* res = create_resarr_result(MUTARR(res_arr), SIZEOF(res_arr));
+        puts("res made");
         state* f_state = create_result_state(res, v_state->index);
+        printf("dtype %d\n", f_state->result->data_type);
+        puts("f_state made");
 
         if (s_state != NULL) {
+            puts("s_state dealloc");
             deallocate_state(s_state);
         }
+        puts("s_state dealloc check done");
         if (v_state != NULL) {
+            puts("v_state free");
             free(v_state);
         }
+        puts("finned v_state dealloc check");
 
         return f_state;
     }
@@ -254,8 +287,8 @@ state* _mP(void* data, char* target, state* i_state) {
 
     state* n_state = i_state;
     while (true) {
-        state* v_state = evaluate(p, target, i_state);
-        if (v_state->error) {
+        state* v_state = evaluate(p, target, n_state);
+        if (v_state->is_error) {
             break;
         } else {
             APPEND(res_arr, v_state->result);
@@ -267,8 +300,8 @@ state* _mP(void* data, char* target, state* i_state) {
     }
 
     SHRINK_TO_NEEDED(res_arr);
-    result* res = create_resarr_result(MUTARR(res_arr), ARR_SIZE(res_arr));
-    return create_result_state(MUTARR(res_arr), ARR_SIZE(res_arr));
+    result* res = create_resarr_result(MUTARR(res_arr), SIZEOF(res_arr));
+    return create_result_state(res, n_state->index);
     #undef res_arr_type
 }
 parser* many(parser* p) {
