@@ -32,18 +32,19 @@ void set_global_dealloc_data(deallocation_data* d) {
 
 void create_deafault_deallocators() {
     deallocation_data* tmp = malloc(sizeof(deallocation_data));
-    tmp->size = 2;
-    int tmp_data_types[] = { INTEGER, STRING, CHAR, RES_ARR };
-    tmp->data_types = malloc(2 * sizeof(int));
-    memcpy(tmp->data_types, tmp_data_types, 2 * sizeof(int));
+    int pdeallocs = 4;
+    tmp->size = pdeallocs;
+    int tmp_data_types[] = { STRING, INTEGER, CHAR, RES_ARR };
+    tmp->data_types = malloc(pdeallocs * sizeof(int));
+    memcpy(tmp->data_types, tmp_data_types, pdeallocs * sizeof(int));
     void* handlers[] = {
-        &def_dealloc,
         &def_dealloc_string,
+        &def_dealloc,
         &def_dealloc,
         &def_dealloc_resarr
     };
-    tmp->handlers = malloc(2 * sizeof(void*));
-    memcpy(tmp->handlers, handlers, 2 * sizeof(void*));
+    tmp->handlers = malloc(pdeallocs * sizeof(void*));
+    memcpy(tmp->handlers, handlers, pdeallocs * sizeof(void*));
     global_state_deallocators = tmp;
 }
 
@@ -201,7 +202,7 @@ char* dresult_to_string(result* rs, bool nl) {
             for (int i = 0; i < _rad->a_len; i++) {
                 int l = strlen(_rarr[i]);
                 if (i + 1 != _rad->a_len) {
-                    sprintf(s + off, "%s, ", _rarr[i]);
+                    sprintf(s + off, "%s; ", _rarr[i]);
                     off += l + 2;
                 } else {
                     memcpy(s + off, _rarr[i], l);
