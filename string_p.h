@@ -9,6 +9,8 @@ parser* upperLowerStrP(char* search);
 
 parser* mulCharMatchP( bool(*cmp), bool ato, char* err);
 
+parser* regexP(char* pattern);
+
 extern parser* letters;
 extern parser* digits;
 extern parser* whitespace;
