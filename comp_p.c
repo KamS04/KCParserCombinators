@@ -166,7 +166,7 @@ parser* lookAhead(parser* p) {
     return dcreate_parser(_loA, p);
 }
 
-mapresult* _bM(result* res) {
+mapresult* _bM(result* res, void *data) {
     mapresult* mr = malloc(sizeof(mapresult));
     mr->dealloc_old = false;
     if (res->data_type != RES_ARR) {

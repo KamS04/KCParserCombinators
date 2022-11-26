@@ -49,14 +49,16 @@ void deallocate_basic_parser(parser* p) {
 
 typedef struct {
     parser* first;
-    mapresult*(*mapper)(result*);
+    mapresult*(*mapper)(result*,void*);
+    void* mapper_data;
     bool noc;
 } mapitem;
-parser* map( parser* in, mapresult*(*mapper)(result*), bool noc) {
+parser* map( parser* in, mappertype mapper, bool noc, void* data) {
     mapitem* item = malloc(sizeof(mapitem));
     item->first = in;
     item->mapper = mapper;
     item->noc = noc;
+    item->mapper_data = data;
 
     parser* n_parser = malloc(sizeof(parser));
     n_parser->type = Map;
@@ -64,8 +66,8 @@ parser* map( parser* in, mapresult*(*mapper)(result*), bool noc) {
 
     return n_parser;
 }
-parser* cmap(parser* in, mapresult*(*mapper)(result*)) {
-    return map(in, mapper, false);
+parser* cmap(parser* in, mappertype mapper) {
+    return map(in, mapper, false, NULL);
 }
 void deallocate_mapper(parser* p) {
     if (p->type != Map) return;
@@ -230,7 +232,7 @@ state* evaluate_map(parser* p, char* c, state* i_state) {
     mapitem* mi = p->data;
     state* f_state = evaluate(mi->first, c, i_state);
     if (f_state->is_error && !mi->noc) return f_state;
-    mapresult* mr = (mi->mapper)(f_state->result);
+    mapresult* mr = (mi->mapper)(f_state->result, mi->mapper_data);
     state* n_state = result_here(f_state, mr->res );
     if (mr->dealloc_old) {
         deallocate_state(f_state);

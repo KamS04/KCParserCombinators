@@ -13,6 +13,8 @@ typedef struct {
     bool dealloc_old;
 } mapresult;
 
+typedef mapresult*(*mappertype)(result*,void*);
+
 state* run(parser* p, char* c);
 
 state* evaluate(parser* p, char* c, state* i_state);
@@ -23,8 +25,8 @@ parser* ddcreate_parser( state* (*parse)(void*,char*, state*), void* data, void(
 
 void deallocate_parser(parser* p);
 
-parser* map( parser* in, mapresult*(*mapper)(result*), bool noc);
-parser* cmap(parser* in, mapresult*(*mapper)(result*));
+parser* map( parser* in, mappertype mapper, bool noc, void* data);
+parser* cmap(parser* in, mappertype mapper);
 
 parser* chain( parser* in, parser*(*chooser)(state*), bool noc, bool dp);
 parser* cchain(parser* in, parser*(*chooser)(state*));
