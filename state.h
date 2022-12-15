@@ -30,12 +30,13 @@ typedef struct {
 typedef struct {
     int size;
     int* data_types;
-    void(**handlers)(result*);
-} deallocation_data;
+    void(**deallocers)(result*);
+    char*(**stringers)(result*, bool);
+} dealloc_str_data;
 
-deallocation_data* get_current_dealloc_data();
+dealloc_str_data* get_current_dealloc_data();
 
-void set_global_dealloc_data(deallocation_data* d);
+void set_global_dealloc_data(dealloc_str_data* d);
 
 void deallocate_result(result* res);
 void deallocate_state(state* st);

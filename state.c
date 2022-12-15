@@ -7,45 +7,82 @@
 #include<math.h>
 #include "state_default_dealloc.h"
 
-deallocation_data* global_state_deallocators = NULL;
-
-deallocation_data* get_current_dealloc_data() {
-    deallocation_data* d = malloc(sizeof(deallocation_data));
-
-    // copy data_types array
-    d->data_types = malloc(global_state_deallocators->size * sizeof(int));
-    memcpy(d->data_types, global_state_deallocators->data_types, global_state_deallocators->size * sizeof(int));
-
-    // copy data handlers array
-    d->handlers = malloc(global_state_deallocators->size * sizeof(void*));
-    memcpy(d->handlers, global_state_deallocators->handlers, global_state_deallocators->size * sizeof(void*));
-
-    return d;
-}
-
-void set_global_dealloc_data(deallocation_data* d) {
-    free(global_state_deallocators->data_types);
-    free(global_state_deallocators->handlers);
-    free(global_state_deallocators);
-    global_state_deallocators = d;
-}
+dealloc_str_data* global_state_deallocators = NULL;
+bool defaults_changed = false;
 
 void create_deafault_deallocators() {
-    deallocation_data* tmp = malloc(sizeof(deallocation_data));
+    dealloc_str_data* tmp = malloc(sizeof(dealloc_str_data));
     int pdeallocs = 4;
     tmp->size = pdeallocs;
     int tmp_data_types[] = { STRING, INTEGER, CHAR, RES_ARR };
     tmp->data_types = malloc(pdeallocs * sizeof(int));
     memcpy(tmp->data_types, tmp_data_types, pdeallocs * sizeof(int));
-    void* handlers[] = {
+    void* deallocers[] = {
         &def_dealloc_string,
         &def_dealloc,
         &def_dealloc,
         &def_dealloc_resarr
     };
-    tmp->handlers = malloc(pdeallocs * sizeof(void*));
-    memcpy(tmp->handlers, handlers, pdeallocs * sizeof(void*));
+    tmp->deallocers = malloc(pdeallocs * sizeof(void*));
+    memcpy(tmp->deallocers, deallocers, pdeallocs * sizeof(void*));
+    void* stringers[] = {
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+    tmp->stringers = malloc(pdeallocs * sizeof(void*));
+    memcpy(tmp->stringers, stringers, pdeallocs * sizeof(void*));
     global_state_deallocators = tmp;
+}
+
+dealloc_str_data* get_current_dealloc_data() {
+    if (global_state_deallocators == NULL) {
+        create_deafault_deallocators();
+    }
+
+    dealloc_str_data* d = malloc(sizeof(dealloc_str_data));
+    d->size = global_state_deallocators->size;
+
+    // copy data_types array
+    d->data_types = malloc(global_state_deallocators->size * sizeof(int));
+    memcpy(d->data_types, global_state_deallocators->data_types, global_state_deallocators->size * sizeof(int));
+
+    // copy data deallocers array
+    d->deallocers = malloc(global_state_deallocators->size * sizeof(void*));
+    memcpy(d->deallocers, global_state_deallocators->deallocers, global_state_deallocators->size * sizeof(void*));
+
+    // copy data stringers
+    d->stringers = malloc(global_state_deallocators->size * sizeof(void*));
+    memcpy(d->stringers, global_state_deallocators->stringers, global_state_deallocators->size * sizeof(void*));
+
+    return d;
+}
+
+bool check_default_change(int type) {
+    int idx = linear_search_prim(type, global_state_deallocators->data_types, global_state_deallocators->size);
+    if (idx == -1) {
+        puts("New Deallocers+Stringers MUST specify deallocers+stringers for default data types!");
+        puts("Deallocers MUST point to actual functions, while default stringers MAY be null");
+        printf("Datatype %d was not defined\n", type);
+    }
+
+    if (global_state_deallocators->stringers[idx] != NULL) {
+        return true;
+    }
+    return false;
+}
+
+void set_global_dealloc_data(dealloc_str_data* d) {
+    free(global_state_deallocators->data_types);
+    free(global_state_deallocators->deallocers);
+    free(global_state_deallocators);
+    global_state_deallocators = d;
+
+    defaults_changed = check_default_change(STRING) ||
+                        check_default_change(CHAR) ||
+                        check_default_change(INTEGER) ||
+                        check_default_change(RES_ARR);
 }
 
 void deallocate_result(result* res) {
@@ -57,7 +94,7 @@ void deallocate_result(result* res) {
         exit(3);
     }
 
-    void (*dealloc_handler)(result*) = global_state_deallocators->handlers[idx];
+    void (*dealloc_handler)(result*) = global_state_deallocators->deallocers[idx];
     dealloc_handler(res);
 }
 
@@ -135,6 +172,15 @@ char* result_to_string(result* rs) {
     return dresult_to_string(rs, true);
 }
 char* dresult_to_string(result* rs, bool nl) {
+    // BASIC SWITCH
+    if (defaults_changed) {
+        int idx = linear_search_prim(rs->data_type, global_state_deallocators->data_types, global_state_deallocators->size);
+        if (idx == -1) {
+            printf("WTF stringer for %d was not defined!!!", rs->data_type);
+        }
+        return global_state_deallocators->stringers[idx](rs, nl);
+    }
+    
     int h_size = 17; // DataType: Value: 
     h_size += int_size(rs->data_type);
 
@@ -144,6 +190,7 @@ char* dresult_to_string(result* rs, bool nl) {
     // END STUFF FOR ARRAY
 
     int v_size;
+
     switch (rs->data_type) {
         case INTEGER:
             v_size = int_size((int) rs->data);
@@ -165,6 +212,13 @@ char* dresult_to_string(result* rs, bool nl) {
                     v_size += 2; // ", "
                 }
             }
+            break;
+        default:
+            int idx = linear_search_prim(rs->data_type, global_state_deallocators->data_types, global_state_deallocators->size);
+            if (idx == -1) {
+                printf("WTF stringer for %d was not defined!!!", rs->data_type);
+            }
+            return global_state_deallocators->stringers[idx](rs, nl);
     }
 
     int e_size = 3; // "\n\n\0" or ", \0"
