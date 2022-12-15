@@ -28,4 +28,5 @@ bool is_digit(char c);
 bool is_whitespace(char c);
 
 int _find_last_match(int st, int st_len, char* str, bool(*cmp)(char c));
+
 #endif
