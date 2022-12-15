@@ -1,8 +1,9 @@
 #include "parsers.h"
 #include "state.h"
-#include "corolib.h"
+#include "korolib.h"
 #include<stdio.h>
 #include<stdlib.h>
+#include "kc_config.h"
 #include<stdbool.h>
 
 enum ParserType{
@@ -11,7 +12,8 @@ enum ParserType{
     Chain,
     Then,
     Manipulate,
-    Coroutine,
+    // Coroutine,
+    Koroutine,
 };
 
 typedef struct {
@@ -175,25 +177,23 @@ void deallocate_manipulate(parser* p) {
 }
 
 typedef struct {
-    void(*coroutine)(coroctx*);
+    void(*koroutine)(koroctx*);
     bool noc;
-} coroitem;
-parser* corop(void(*coro)(coroctx*), bool noc) {
-    coroitem* item = malloc(sizeof(coroitem));
-    item->coroutine = coro;
+} koroitem;
+parser* korop(void(*koro)(koroctx*), bool noc) {
+    koroitem* item = malloc(sizeof(koroitem));
+    item->koroutine = koro;
     item->noc = noc;
 
     parser* n_p = malloc(sizeof(parser));
     n_p->data = item;
-    n_p->type = Coroutine;
+    n_p->type = Koroutine;
+    return n_p;
 }
-parser* ccorop(void(*coro)(coroctx*)) {
-    return corop(coro, false);
-}
-void deallocate_coro(parser* p) {
-    if (p->type != Coroutine) return;
-    coroitem* ci = p->data;
-    free(ci);
+void deallocate_koro(parser* p) {
+    if (p->type != Koroutine) return;
+    koroitem* ki = p->data;
+    free(ki);
     free(p);
     return;
 }
@@ -211,8 +211,10 @@ void deallocate_parser(parser* p) {
             return deallocate_then(p);
         case Manipulate:
             return deallocate_manipulate(p);
-        case Coroutine:
-            return deallocate_coro(p);
+        // case Coroutine:
+            // return deallocate_coro(p);
+        case Koroutine:
+            return deallocate_koro(p);
     };
 }
 
@@ -280,33 +282,43 @@ state* evaluate_manipulate(parser* p, char* c, state* i_state) {
     return n_state;
 }
 
-state* evaluate_coro(parser* p, char* c, state* i_state) {
-    coroitem* ci = p->data;
-    if (i_state->is_error && !ci->noc) return i_state;
-    coroctx* ctx = default_ctx();
-    void(*coroutine)(coroctx*) = ci->coroutine;
-    bool dealloc_old = false;
+state* evaluate_koro(parser* p, char* c, state* i_state) {
+    koroitem* ki = p->data;
+    if (i_state->is_error && !ki->noc) return i_state;
+    koroctx* kctx = default_kctx();
+    void(*koroutine)(koroctx*) = ki->koroutine;
+    bool ready_dealloc = false;
     state* n_state;
+
     while (1) {
-        coroutine(ctx);
-        if (ctx->fin)
+        koroutine(kctx);
+        if (kctx->fin)
             break;
         
-        parser* next_parser = ctx->yield;
+        KC_PL_DEBUG_MODE && puts("CORO YIELDED");
+        KC_PL_DEBUG_MODE && kctx->stringer && printf("dat after yield %s\n", kctx->stringer(kctx->data));
+
+        parser* next_parser = kctx->yield;
         n_state = evaluate(next_parser, c, i_state);
-        if (dealloc_old && n_state->dealloc_old) {
-            deallocate_state(i_state);
+        if (ready_dealloc && n_state->dealloc_old) {
+            if (kctx->using_last_value) {
+                free(i_state->result); // free without deallocing values
+                free(i_state);
+            } else {
+                deallocate_state(i_state); // deallocate everything
+            }
         }
-        dealloc_old = true;
+        ready_dealloc = true;
         if (n_state->is_error) {
             return n_state;
         }
-        ctx->lr = n_state->result;
+        kctx->last_result = n_state->result;
         i_state = n_state;
     }
-    state* res = create_result_state(ctx->result, n_state->index);
-    free(ctx);
-    return res;
+
+    state* res = create_result_state(kctx->fin_result, n_state->index);
+    free(kctx);
+    return(res);
 }
 
 state* evaluate(parser* p, char* c, state* i_state) {
@@ -322,7 +334,7 @@ state* evaluate(parser* p, char* c, state* i_state) {
             return evaluate_then(p, c, i_state);
         case Manipulate:
             return evaluate_manipulate(p, c, i_state);
-        case Coroutine:
-            return evaluate_coro(p, c, i_state);
+        case Koroutine:
+            return evaluate_koro(p, c, i_state);
     };
 }

@@ -1,7 +1,7 @@
 #ifndef PARSERS_HEADER
 #define PARSERS_HEADER ANYTHING
 #include "state.h"
-#include "corolib.h"
+#include "korolib.h"
 #include<stdbool.h>
 
 typedef struct {
@@ -37,8 +37,7 @@ parser* cthen(parser* in, parser* next);
 parser* manipulate( parser* in, state*(*manipulator)(state*), bool noc);
 parser* cmanipulate(parser* in, state*(*manipulator)(state*));
 
-parser* corop(void(*coro)(coroctx*), bool noc);
-parser* ccorop(void(*coro)(coroctx*));
+parser* korop(void(*koro)(koroctx*), bool noc);
 
 typedef struct {
     parser* original;
