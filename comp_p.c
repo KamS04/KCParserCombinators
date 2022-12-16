@@ -186,7 +186,7 @@ mapresult* _bM(result* res, void *data) {
     if (p[2] != NULL) {
         deallocate_result(p[2]);
     }
-
+    free(p);
     return mr;
 }
 parser* between(parser* before, parser* get, parser* after) {

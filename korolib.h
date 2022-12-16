@@ -17,7 +17,7 @@
 #define crBegin _KCTX->deallocer = NULL; \
                 switch(_KCTX->state) { case 0:
 
-#define ALLOCATE_DAT_NULL KDDAT = malloc(sizeof(_kdtype));
+#define ALLOCATE_DAT_NULL() KDDAT = malloc(sizeof(_kdtype));
 
 #define ALLOCATE_DAT_DEALLOC(deallocer) _KCTX->dealloc = deallocer; \
                                 ALLOCATE_DAT_NULL()

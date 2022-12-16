@@ -36,10 +36,15 @@ void create_deafault_deallocators() {
     global_state_deallocators = tmp;
 }
 
-dealloc_str_data* get_current_dealloc_data() {
+dealloc_str_data* prepare_global_typedata() {
     if (global_state_deallocators == NULL) {
         create_deafault_deallocators();
     }
+    return global_state_deallocators;
+}
+
+dealloc_str_data* get_current_dealloc_data() {
+    prepare_global_typedata();
 
     dealloc_str_data* d = malloc(sizeof(dealloc_str_data));
     d->size = global_state_deallocators->size;
@@ -60,6 +65,8 @@ dealloc_str_data* get_current_dealloc_data() {
 }
 
 bool check_default_change(int type) {
+    prepare_global_typedata();
+
     int idx = linear_search_prim(type, global_state_deallocators->data_types, global_state_deallocators->size);
     if (idx == -1) {
         puts("New Deallocers+Stringers MUST specify deallocers+stringers for default data types!");
@@ -86,6 +93,7 @@ void set_global_dealloc_data(dealloc_str_data* d) {
 }
 
 void deallocate_result(result* res) {
+    prepare_global_typedata();
     int to_f = res->data_type;
     int idx = linear_search_prim(to_f, global_state_deallocators->data_types, global_state_deallocators->size);
     if (idx == -1) {
@@ -99,9 +107,8 @@ void deallocate_result(result* res) {
 }
 
 void deallocate_state(state* st) {
-    if (global_state_deallocators == NULL) {
-        create_deafault_deallocators();
-    }
+    prepare_global_typedata();
+
     if (st->result != NULL) {
         deallocate_result(st->result);
     }
@@ -173,6 +180,8 @@ char* result_to_string(result* rs) {
 }
 char* dresult_to_string(result* rs, bool nl) {
     // BASIC SWITCH
+    prepare_global_typedata();
+    
     if (defaults_changed) {
         int idx = linear_search_prim(rs->data_type, global_state_deallocators->data_types, global_state_deallocators->size);
         if (idx == -1) {
