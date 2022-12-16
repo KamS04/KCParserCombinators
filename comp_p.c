@@ -5,7 +5,7 @@
 #include "string_p.h"
 #include "util_p.h"
 #include "mutarr.h"
-#include "kc_config.h"
+#include "log.h"
 
 state* _posP(void* data, char* target, state* i_state) {
     parser* orig = (parser*) data;
@@ -213,10 +213,10 @@ state* _sPB(void* data, char* target, state* i_state) {
     state* n_state = i_state;
 
     while (true) {
-        KC_PL_DEBUG_MODE && printf("%s\n", state_to_string(n_state));
+        LOG(printf("%s\n", state_to_string(n_state)))
         v_state = evaluate(it->p1, target, n_state);
         if (v_state->is_error) {
-            KC_PL_DEBUG_MODE && puts("vstate errored so breaking");
+            LOG(puts("vstate errored so breaking"));
             e_state = v_state;
             break;
         }
@@ -231,44 +231,44 @@ state* _sPB(void* data, char* target, state* i_state) {
     }
 
     if (e_state != NULL) {
-        KC_PL_DEBUG_MODE && puts("in estate is not null");
+        LOG(puts("in estate is not null"));
         for (int i = 0 ; i < ARR_SIZE(res_arr); i++) {
-            KC_PL_DEBUG_MODE && printf("estate dealloc loop #%d\n", i);
+            LOG(printf("estate dealloc loop #%d\n", i));
             if (MUTARR(res_arr)[i] != NULL) {
                 deallocate_result(MUTARR(res_arr)[i]);
             }
         }
-        KC_PL_DEBUG_MODE && puts("done estate loop");
+        LOG(puts("done estate loop"));
         free(MUTARR(res_arr));
-        KC_PL_DEBUG_MODE && puts("freed arr");
+        LOG(puts("freed arr"));
         if (s_state != NULL) {
-            KC_PL_DEBUG_MODE && puts("deallocing s_state");
+            LOG(puts("deallocing s_state"));
             deallocate_state(s_state);
         }
-        KC_PL_DEBUG_MODE && puts("retting e_state");
-        KC_PL_DEBUG_MODE && printf("%p retting\n", e_state);
+        LOG(puts("retting e_state"));
+        LOG(printf("%p retting\n", e_state));
         return e_state;
     } else {
-        KC_PL_DEBUG_MODE && puts("succ");
+        LOG(puts("succ"));
         SHRINK_TO_NEEDED(res_arr);
-        KC_PL_DEBUG_MODE && printf("after shrink %d\n", SIZEOF(res_arr));
-        KC_PL_DEBUG_MODE && puts("shrink fin");
+        LOG(printf("after shrink %d\n", SIZEOF(res_arr)));
+        LOG(puts("shrink fin"));
         result* res = create_resarr_result(MUTARR(res_arr), SIZEOF(res_arr));
-        KC_PL_DEBUG_MODE && puts("res made");
+        LOG(puts("res made"));
         state* f_state = create_result_state(res, v_state->index);
-        KC_PL_DEBUG_MODE && printf("dtype %d\n", f_state->result->data_type);
-        KC_PL_DEBUG_MODE && puts("f_state made");
+        LOG(printf("dtype %d\n", f_state->result->data_type));
+        LOG(puts("f_state made"));
 
         if (s_state != NULL) {
-            KC_PL_DEBUG_MODE && puts("s_state dealloc");
+            LOG(puts("s_state dealloc"));
             deallocate_state(s_state);
         }
-        KC_PL_DEBUG_MODE && puts("s_state dealloc check done");
+        LOG(puts("s_state dealloc check done"));
         if (v_state != NULL) {
-            KC_PL_DEBUG_MODE && puts("v_state free");
+            LOG(puts("v_state free"));
             free(v_state);
         }
-        KC_PL_DEBUG_MODE && puts("finned v_state dealloc check");
+        LOG(puts("finned v_state dealloc check"));
 
         return f_state;
     }

@@ -3,7 +3,7 @@
 #include "korolib.h"
 #include<stdio.h>
 #include<stdlib.h>
-#include "kc_config.h"
+#include "log.h"
 #include<stdbool.h>
 
 enum ParserType{
@@ -296,12 +296,12 @@ state* evaluate_koro(parser* p, char* c, state* i_state) {
         if (kctx->fin)
             break;
         
-        KC_PL_DEBUG_MODE && puts("KORO: yielded");
-        KC_PL_DEBUG_MODE && kctx->stringer && printf("KORO: dat after yield %s\n", kctx->stringer(kctx->data));
+        LOG(puts("KORO: yielded"));
+        LOG(kctx->stringer && printf("KORO: dat after yield %s\n", kctx->stringer(kctx->data)));
 
         parser* next_parser = kctx->yield;
         n_state = evaluate(next_parser, c, i_state);
-        KC_PL_DEBUG_MODE && puts("KORO: coro yield eval'd");
+        LOG(puts("KORO: coro yield eval'd"));
         if (ready_dealloc && n_state->dealloc_old) {
             if (kctx->using_last_value) {
                 free(i_state->result); // free without deallocing values
@@ -318,7 +318,7 @@ state* evaluate_koro(parser* p, char* c, state* i_state) {
         i_state = n_state;
     }
 
-    KC_PL_DEBUG_MODE && printf("KORO: res %p rtype %d rdpoint %p\n", kctx->fin_result, ((result*)kctx->fin_result)->data_type, ((result*)kctx->fin_result)->data_type);
+    LOG(printf("KORO: res %p rtype %d rdpoint %p\n", kctx->fin_result, ((result*)kctx->fin_result)->data_type, ((result*)kctx->fin_result)->data_type));
     state* res = create_result_state(kctx->fin_result, n_state->index);
     free(kctx);
     return res;

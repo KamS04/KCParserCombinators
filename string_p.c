@@ -5,7 +5,7 @@
 #include "parsers.h"
 #include "util.h"
 #include "re.h"
-#include "kc_config.h"
+#include "log.h"
 
 typedef struct {
     char* search;
@@ -89,15 +89,15 @@ state* _mulCharMP(void* data, char* target, state* i_state) {
     int matched = en - i_state->index + 1;
     if (matched > 0 || !mcs->ato) {
         result* res = create_result(STRING, NULL);
-        KC_PL_DEBUG_MODE && puts("something matched");
+        LOG(puts("something matched"));
         if (matched > 0) {
-            KC_PL_DEBUG_MODE && printf("%d matched chars\n", matched);
+            LOG(printf("%d matched chars\n", matched));
             res->data = malloc( (matched+1) * sizeof(char) );
-            KC_PL_DEBUG_MODE && puts("finished malloc");
+            LOG(puts("finished malloc"));
             memcpy(res->data, target + i_state->index, matched);
-            KC_PL_DEBUG_MODE && puts("finished data copy");
+            LOG(puts("finished data copy"));
             ((char*) res->data)[matched] = '\0';
-            KC_PL_DEBUG_MODE && puts("finished term put");
+            LOG(puts("finished term put"));
         }
         return create_result_state(res, i_state->index + matched);
     } else {
@@ -132,14 +132,14 @@ state* _regP(void* data, char* target, state* i_state) {
 
     int m_len;
     int match_idx = re_matchp(l_c_ptr, target + i_state->index, &m_len);
-    KC_PL_DEBUG_MODE && printf("match info %d %d\n", m_len, match_idx);
+    LOG(printf("match info %d %d\n", m_len, match_idx));
     if (match_idx != 0 || m_len == 0) {
         char* err = malloc( (rit->p_len + 26) * sizeof(char) );
         sprintf(err, "Could not match pattern: %s", rit->pat);
         return create_error_state(err, i_state->index);
     }
     char* mat = malloc((m_len+1) * sizeof(char));
-    KC_PL_DEBUG_MODE && printf("mat loc %p\n", mat);
+    LOG(printf("mat loc %p\n", mat));
     memcpy(mat, target + i_state->index, m_len * sizeof(char));
     mat[m_len] = '\0';
     result* res = create_result(STRING, mat);
