@@ -27,7 +27,7 @@ state* _strP(void* data, char* target, state* i_state) {
     }
     char* error_st = malloc( (ss->len + 9) * sizeof(char) );
     memcpy(error_st, ss->snf, ss->len + 9);
-    return error_here(i_state, error_st);
+    return create_error_state(error_st, i_state->index);
 }
 parser* strP(char* search) {
     _ssit* ss = malloc(sizeof(_ssit));
@@ -41,7 +41,9 @@ state* _lUstrP(void* data, char* target, state* i_state) {
     _ssit* ss = (_ssit*) data;
     int t_len = strlen(target);
     if (ss->len-1 > t_len - i_state->index) {
-        return error_here(i_state, "Target is not long enough to check");
+        state* s = error_here(i_state, "Target is not long enough to check");
+        s->error_from_malloc = false;
+        return s;
     }
     
     char* n_str = malloc(ss->len * sizeof(char));
@@ -51,14 +53,14 @@ state* _lUstrP(void* data, char* target, state* i_state) {
 
     if (strncmp(ss->search, n_str, ss->len-1) == 0) {
         // SUCCESS
-        free(n_str);
+        kfree(n_str);
         char* ms = malloc(ss->len * sizeof(char));
         memcpy(ms, ss->search, ss->len);
         result* res = create_result(STRING, ms);
         return create_result_state(res, i_state->index + ss->len - 1);
     }
 
-    free(n_str);
+    kfree(n_str);
     if (ss->snf == NULL) {
         ss->snf = malloc( (ss->len + 20) * sizeof(char));
         sprintf(ss->snf, "UpperLower String \"%s\"", ss->search);
@@ -110,8 +112,8 @@ parser* mulCharMatchP(bool(*cmp)(char), bool ato, char* err) {
     _mcsit* mcs = malloc(sizeof(_mcsit));
     mcs->ato = ato;
     mcs->cmp = cmp;
-    mcs->errlen = snprintf(NULL, 0, err, 'c');
-    mcs->errstr = malloc(strlen(err) * sizeof(char));
+    mcs->errlen = snprintf(NULL, 0, err, 'c') + 1;
+    mcs->errstr = malloc((strlen(err) + 1) * sizeof(char));
     strcpy(mcs->errstr, err);
     return dcreate_parser(&_mulCharMP, mcs);
 }

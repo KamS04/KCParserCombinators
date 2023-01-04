@@ -15,8 +15,10 @@ typedef struct {
 } result;
 
 typedef struct {
-    result** arr;
+    void** arr;
     int a_len;
+    bool all_same_type;
+    int all_type;
 } ResArrD;
 
 typedef struct {
@@ -25,6 +27,7 @@ typedef struct {
     int index;
     result* result;
     bool dealloc_old;
+    bool error_from_malloc;
 } state;
 
 typedef struct {
@@ -41,7 +44,9 @@ void set_global_dealloc_data(dealloc_str_data* d);
 void deallocate_result(result* res);
 void deallocate_state(state* st);
 
+ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at);
 ResArrD* create_res_arr(result** arr, int len);
+result* dcreate_resarr_result(void** arr, int len, bool ast, int at);
 result* create_resarr_result(result** arr, int len);
 
 result* create_result(int data_type, void* data);

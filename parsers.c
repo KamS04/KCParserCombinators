@@ -45,8 +45,8 @@ void deallocate_basic_parser(parser* p) {
     if (dpf->dealloc_data != NULL) {
         dpf->dealloc_data(dpf->data);
     }
-    free(dpf);
-    free(p);
+    kfree(dpf);
+    kfree(p);
 }
 
 typedef struct {
@@ -76,8 +76,8 @@ void deallocate_mapper(parser* p) {
 
     mapitem *item = p->data;
     deallocate_parser(item->first);
-    free(item);
-    free(p);
+    kfree(item);
+    kfree(p);
     return;
 }
 
@@ -112,8 +112,8 @@ void deallocate_chain(parser* p) {
 
     chainitem* item = p->data;
     deallocate_parser(item->first);
-    free(p);
-    free(item);
+    kfree(p);
+    kfree(item);
 }
 
 typedef struct {
@@ -142,8 +142,8 @@ void deallocate_then(parser* p) {
     thenitem* item = p->data;
     deallocate_parser(item->first);
     deallocate_parser(item->second);
-    free(item);
-    free(p);
+    kfree(item);
+    kfree(p);
     return;
 }
 
@@ -171,8 +171,8 @@ void deallocate_manipulate(parser* p) {
     if (p->type != Manipulate) return;
     maniitem* item = p->data;
     deallocate_parser(item->first);
-    free(item);
-    free(p);
+    kfree(item);
+    kfree(p);
     return;
 }
 
@@ -193,8 +193,8 @@ parser* korop(void(*koro)(koroctx*), bool noc) {
 void deallocate_koro(parser* p) {
     if (p->type != Koroutine) return;
     koroitem* ki = p->data;
-    free(ki);
-    free(p);
+    kfree(ki);
+    kfree(p);
     return;
 }
 
@@ -234,15 +234,15 @@ state* evaluate_map(parser* p, char* c, state* i_state) {
     mapitem* mi = p->data;
     state* f_state = evaluate(mi->first, c, i_state);
     if (f_state->is_error && !mi->noc) return f_state;
-    puts("about to map result");
     mapresult* mr = (mi->mapper)(f_state->result, mi->mapper_data);
     state* n_state = result_here(f_state, mr->res );
     if (mr->dealloc_old) {
+        LOG(puts("MAP: deallocing fstate"));
         deallocate_state(f_state);
     } else {
-        free(f_state);
+        kfree(f_state);
     }
-    free(mr);
+    kfree(mr);
     return n_state;
 }
 
@@ -300,14 +300,19 @@ state* evaluate_koro(parser* p, char* c, state* i_state) {
         LOG(kctx->stringer && printf("KORO: dat after yield %s\n", kctx->stringer(kctx->data)));
 
         parser* next_parser = kctx->yield;
+        LOG(printf("KORO: idx %d with %p\n", i_state->index, next_parser));
         n_state = evaluate(next_parser, c, i_state);
         LOG(puts("KORO: coro yield eval'd"));
         if (ready_dealloc && n_state->dealloc_old) {
             if (kctx->using_last_value) {
-                free(i_state->result); // free without deallocing values
-                free(i_state);
+                LOG(printf("KORO: safe dealloc start --"));
+                kfree(i_state->result); // kfree without deallocing values
+                kfree(i_state);
+                LOG(puts("end"));
             } else {
+                LOG(printf("KORO; unsafe dealloc start -- "));
                 deallocate_state(i_state); // deallocate everything
+                LOG(puts("end"));
             }
         }
         ready_dealloc = true;
@@ -320,7 +325,7 @@ state* evaluate_koro(parser* p, char* c, state* i_state) {
 
     LOG(printf("KORO: res %p rtype %d rdpoint %p\n", kctx->fin_result, ((result*)kctx->fin_result)->data_type, ((result*)kctx->fin_result)->data_type));
     state* res = create_result_state(kctx->fin_result, n_state->index);
-    free(kctx);
+    kfree(kctx);
     return res;
 }
 

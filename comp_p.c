@@ -12,7 +12,7 @@ state* _posP(void* data, char* target, state* i_state) {
     state* first = evaluate(orig, target, i_state);
     if (first->is_error) {
         state* final = result_here(first, NULL);
-        free(first);
+        kfree(first);
         return final;
     }
     return first;
@@ -22,14 +22,20 @@ parser* possibly(parser* p) {
 }
 
 state* _eUP(void* data, char* target, state* i_state) {
+    static char* last_ch = NULL;
+    static int tlen;
     parser* p = (parser*) data;
     int st = i_state->index;
-    int tlen = strlen(target);
+    
+    if (target != last_ch) {
+        tlen = strlen(target);
+    }
     
     state* c_state = default_state();
+    state* n_state;
     c_state->index = i_state->index;
     while (c_state->index < tlen) {
-        state* n_state = evaluate(p, target, c_state);
+        n_state = evaluate(p, target, c_state);
         if (!n_state->is_error) {
             break;
         }
@@ -39,8 +45,13 @@ state* _eUP(void* data, char* target, state* i_state) {
 
     int en = c_state->index;
     if (en >= tlen) {
-        char* err = malloc(33 * sizeof(char));
-        return create_error_state(err, i_state->index);
+        if (data) {
+            n_state = evaluate(p, target, c_state);
+            if (n_state->error) {
+                char* err = malloc(33 * sizeof(char));
+                return create_error_state(err, i_state->index);
+            }
+        }
     }
     char* sres = malloc((en-st+1) * sizeof(char));
     memcpy(sres, target+st, (en-st));
@@ -48,8 +59,8 @@ state* _eUP(void* data, char* target, state* i_state) {
     result* res = create_result(STRING, sres);
     return create_result_state(res, en);
 }
-parser* everythingUntil(parser* p) {
-    return dcreate_parser(_eUP, p);
+parser* everythingUntil(parser* p, bool check_till_end) {
+    return ddcreate_parser(_eUP, p, NULL, check_till_end);
 }
 
 state* _aCE(void* data, char* target, state* i_state) {
@@ -130,11 +141,13 @@ state* _sOP(void* data, char* target, state* i_state) {
                 deallocate_result(resarr[i]);
             }
         }
-        free(resarr);
+        kfree(resarr);
         int s_len = strlen(s_state->error);
         char* err = malloc( (s_len + 18) * sizeof(char) );
         sprintf(err, "Sequence Break : %s", s_state->error);
-        free(s_state->error);
+        if (s_state->error_from_malloc) {
+            kfree(s_state->error);
+        }
         s_state->error = err;
         return s_state;
     }
@@ -186,7 +199,7 @@ mapresult* _bM(result* res, void *data) {
     if (p[2] != NULL) {
         deallocate_result(p[2]);
     }
-    free(p);
+    kfree(p);
     return mr;
 }
 parser* between(parser* before, parser* get, parser* after) {
@@ -213,17 +226,21 @@ state* _sPB(void* data, char* target, state* i_state) {
     state* n_state = i_state;
 
     while (true) {
-        LOG(printf("%s\n", state_to_string(n_state)))
+        LOG(printf("sepby: %s\n", state_to_string(n_state)))
         v_state = evaluate(it->p1, target, n_state);
+        LOG(puts("sepby: getter eval'd"));
         if (v_state->is_error) {
-            LOG(puts("vstate errored so breaking"));
+            LOG(puts("sepby: vstate errored so breaking"));
             e_state = v_state;
             break;
         }
         APPEND(res_arr, v_state->result);
+        LOG(puts("sepby: added to array"));
 
         s_state = evaluate(it->p2, target, v_state);
+        LOG(puts("sepby: separator eval'd"));
         if (s_state->is_error) {
+            LOG(puts("sepby: seperator failed"));
             break;
         }
 
@@ -239,8 +256,8 @@ state* _sPB(void* data, char* target, state* i_state) {
             }
         }
         LOG(puts("done estate loop"));
-        free(MUTARR(res_arr));
-        LOG(puts("freed arr"));
+        kfree(MUTARR(res_arr));
+        LOG(puts("kfreed arr"));
         if (s_state != NULL) {
             LOG(puts("deallocing s_state"));
             deallocate_state(s_state);
@@ -265,8 +282,8 @@ state* _sPB(void* data, char* target, state* i_state) {
         }
         LOG(puts("s_state dealloc check done"));
         if (v_state != NULL) {
-            LOG(puts("v_state free"));
-            free(v_state);
+            LOG(puts("v_state kfree"));
+            kfree(v_state);
         }
         LOG(puts("finned v_state dealloc check"));
 
@@ -281,32 +298,85 @@ parser* sepBy(parser* get, parser* sep) {
     return dcreate_parser(_sPB, it);
 }
 
+typedef struct {
+    bool atleast1;
+    parser* p;
+    bool all_same_type;
+    int all_type;
+} ManyData;
 state* _mP(void* data, char* target, state* i_state) {
-    #define res_arr_type result*
+    #define res_arr_type void*
     ALLOCATE(res_arr, 10);
-    parser* p = (parser*) data;
+    ManyData* md = (ManyData*) data;
+    parser* p = md->p;
 
     state* n_state = i_state;
+    state* v_state;
     while (true) {
-        state* v_state = evaluate(p, target, n_state);
+        v_state = evaluate(p, target, n_state);
         if (v_state->is_error) {
             break;
         } else {
-            APPEND(res_arr, v_state->result);
+            if (md->all_same_type) {
+                APPEND(res_arr, v_state->result->data);
+            } else {
+                APPEND(res_arr, v_state->result);
+            }
             if (n_state != i_state) {
-                free(n_state);
+                if (md->all_same_type) {
+                    kfree(n_state->result);
+                }
+                kfree(n_state);
             }
             n_state = v_state;
         }
     }
 
+    if (md->atleast1 && CARR_SIZE(res_arr) < 1) {
+        DELETE(res_arr);
+        state* st = create_error_state("Many1: 0 Items matched", i_state->index);
+        st->error_from_malloc = false;
+        return st;
+    }
+
     SHRINK_TO_NEEDED(res_arr);
-    result* res = create_resarr_result(MUTARR(res_arr), SIZEOF(res_arr));
-    return create_result_state(res, n_state->index);
+
+    result* res;
+    if (md->all_same_type) {
+        res = dcreate_resarr_result(MUTARR(res_arr), SIZEOF(res_arr), true, md->all_type);
+    } else {
+        res = create_resarr_result(MUTARR(res_arr), SIZEOF(res_arr));
+    }
+
+    state* out = create_result_state(res, n_state->index);
+    out->error_from_malloc = v_state->error_from_malloc;
+    out->error = v_state->error;
+    v_state->error = NULL;
+
+    deallocate_state(v_state);
+
+    return out;
     #undef res_arr_type
 }
+parser* dmany(parser* p, bool atleast1, bool all_same_type, int all_type) {
+    ManyData* md = malloc(sizeof(ManyData));
+    md->p = p;
+    md->atleast1 = atleast1;
+    md->all_same_type = all_same_type;
+    md->all_type = all_type;
+    return dcreate_parser(_mP, md);
+}
 parser* many(parser* p) {
-    return dcreate_parser(_mP, p);
+    return dmany(p, 0, 0, 0);
+}
+parser* many1(parser* p) {
+    return dmany(p, true, false, 0);
+}
+parser* manyAS(parser* p, int atype) {
+    return dmany(p, false, true, atype);
+}
+parser* manyAS1(parser* p, int atype) {
+    return dmany(p, true, true, atype);
 }
 
 parser* optionalWhitespace;

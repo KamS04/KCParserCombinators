@@ -19,8 +19,10 @@ typedef struct {
 } result;
 
 typedef struct {
-    result** arr;
+    void** arr;
     int a_len;
+    bool all_same_type;
+    int all_type;
 } ResArrD;
 
 typedef struct {
@@ -90,7 +92,9 @@ void set_global_dealloc_data(dealloc_str_data* d);
 void deallocate_result(result* res);
 void deallocate_state(state* st);
 
+ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at);
 ResArrD* create_res_arr(result** arr, int len);
+result* dcreate_resarr_result(void** arr, int len, bool ast, int at);
 result* create_resarr_result(result** arr, int len);
 
 result* create_result(int data_type, void* data);
@@ -166,14 +170,18 @@ void init_core_char_parsers();
 
 // -- comp_p.h --
 parser* possibly(parser* p);
-parser* everythingUntil(parser* p);
+parser* everythingUntil(parser* p, bool check_till_end);
 parser* anyCharExcept(parser* p);
 parser* choice(parser** parsers, int p_size);
 parser* sequenceOf(parser** parsers, int p_size);
 parser* lookAhead(parser* p);
 parser* sepBy(parser* get, parser* sep);
-parser* many(parser* p);
 parser* between(parser* before, parser* get, parser* after);
+parser* dmany(parser* p, bool atleast1, bool all_same_type, int all_type);
+parser* many(parser* p);
+parser* many1(parser* p);
+parser* manyAS(parser* p, int atype);
+parser* manyAS1(parser* p, int atype);
 
 extern parser* optionalWhitespace;
 
@@ -191,5 +199,6 @@ void init_core_parsers();
 // -- kc_config.h --
 extern int KC_PL_DEBUG_MODE;
 extern int KC_PL_DEBUG_DAT_SIZE;
+extern int KC_PL_HDEBUG_MODE;
 
 #endif

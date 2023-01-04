@@ -6,6 +6,7 @@
 #include<string.h>
 #include<math.h>
 #include "state_default_dealloc.h"
+#include "log.h"
 
 dealloc_str_data* global_state_deallocators = NULL;
 bool defaults_changed = false;
@@ -81,9 +82,9 @@ bool check_default_change(int type) {
 }
 
 void set_global_dealloc_data(dealloc_str_data* d) {
-    free(global_state_deallocators->data_types);
-    free(global_state_deallocators->deallocers);
-    free(global_state_deallocators);
+    kfree(global_state_deallocators->data_types);
+    kfree(global_state_deallocators->deallocers);
+    kfree(global_state_deallocators);
     global_state_deallocators = d;
 
     defaults_changed = check_default_change(STRING) ||
@@ -112,11 +113,11 @@ void deallocate_state(state* st) {
     if (st->result != NULL) {
         deallocate_result(st->result);
     }
-    if (st->error != NULL) {
-        free(st->error);
+    if (st->error != NULL && st->error_from_malloc) {
+        kfree(st->error);
     }
 
-    free(st);
+    kfree(st);
 }
 
 char* state_to_string(state* n_state) {
@@ -214,20 +215,35 @@ char* dresult_to_string(result* rs, bool nl) {
             v_size = 4; // {  }
             _rad = (ResArrD*) rs->data;
             _rarr = malloc( _rad->a_len * sizeof(char*) );
-            for (int i = 0; i < _rad->a_len; i++) {
-                _rarr[i] = dresult_to_string(_rad->arr[i], false);
-                v_size += strlen(_rarr[i]);
-                if (i + 1 != _rad->a_len) {
-                    v_size += 2; // ", "
+            if (_rad->all_same_type) {
+                result* r = create_result(_rad->all_type, NULL);
+                for (int i = 0; i < _rad->a_len; i++) {
+                    r->data = _rad->arr[i];
+                    _rarr[i] = dresult_to_string(r, false);
+                    v_size += strlen(_rarr[i]);
+                    if (i + 1 != _rad->a_len) {
+                        v_size += 2; // ", "
+                    }
+                }
+            } else {
+                for (int i = 0; i < _rad->a_len; i++) {
+                    _rarr[i] = dresult_to_string(_rad->arr[i], false);
+                    v_size += strlen(_rarr[i]);
+                    if (i + 1 != _rad->a_len) {
+                        v_size += 2; // ", "
+                    }
                 }
             }
+
+            
             break;
-        default:
+        default: {
             int idx = linear_search_prim(rs->data_type, global_state_deallocators->data_types, global_state_deallocators->size);
             if (idx == -1) {
                 printf("WTF stringer for %d was not defined!!!", rs->data_type);
             }
             return global_state_deallocators->stringers[idx](rs, nl);
+        }
     }
 
     int e_size = 3; // "\n\n\0" or ", \0"
@@ -271,28 +287,37 @@ char* dresult_to_string(result* rs, bool nl) {
                     memcpy(s + off, _rarr[i], l);
                     off += l;
                 }
-                free(_rarr[i]);
+                kfree(_rarr[i]);
             }
-            free(_rarr);
+            kfree(_rarr);
             strcpy(s+off, " }");
     }
     sprintf(fstr, format, rs->data_type, s);
     if (s != rs->data) {
-        free(s);
+        kfree(s);
     }
 
     return fstr;
 }
 
+ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at) {
+    ResArrD* rad = malloc(sizeof(ResArrD));
+    rad->a_len = len;
+    rad->arr = arr;
+    rad->all_same_type = ast;
+    rad->all_type = at;
+    return rad;
+}
 ResArrD* create_res_arr(result** arr, int len) {
-    ResArrD* raD = malloc(sizeof(ResArrD));
-    raD->a_len = len;
-    raD->arr = arr;
-    return raD;
+    return dcreate_res_arr(arr, len, 0, 0);
+}
+
+result* dcreate_resarr_result(void** arr, int len, bool ast, int at) {
+    return create_result(RES_ARR, dcreate_res_arr(arr, len, ast, at) );
 }
 
 result* create_resarr_result(result** arr, int len) {
-    return create_result(RES_ARR,create_res_arr(arr, len));
+    return dcreate_resarr_result(arr, len, 0, 0);
 }
 
 result* create_result(int data_type, void* data) {
@@ -315,6 +340,7 @@ state* default_state() {
     n_state->index = 0;
     n_state->result = NULL;
     n_state->dealloc_old = true;
+    n_state->error_from_malloc = true;
     return n_state;
 }
 
@@ -322,6 +348,7 @@ state* error_here(state* o_state, char* error) {
     state* n_state = copy_state(o_state);
     n_state->is_error = true;
     n_state->error = error;
+    n_state->result = NULL;
     return n_state;
 }
 
