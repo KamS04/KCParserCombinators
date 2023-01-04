@@ -1,2 +1,3 @@
 int KC_PL_DEBUG_DAT_SIZE = 0;
 int KC_PL_DEBUG_MODE = 0;
+int KC_PL_HDEBUG_MODE = 0;
