@@ -39,7 +39,7 @@
 #define REALLOCATE(x, nsi) NSIZE(x) = ARR_SIZE(x) + nsi; \
                         ATYPE(x)* T_ARR(x) = malloc( NSIZE(x) * sizeof(ATYPE(x))); \
                         memcpy(T_ARR(x), MUTARR(x), CARR_SIZE(x) * sizeof(ATYPE(x))); \
-                        free(MUTARR(x)); \
+                        kfree(MUTARR(x)); \
                         MUTARR(x) = T_ARR(x); \
                         ARR_SIZE(x) = NSIZE(x); \
                         T_ARR(x) = NULL; \
@@ -55,16 +55,19 @@
 #define SHRINK_TO_NEEDED(x) if (CARR_SIZE(x) < ARR_SIZE(x)) { \
                                 T_ARR(x) = malloc(CARR_SIZE(x) * sizeof(ATYPE(x))); \
                                 memcpy(T_ARR(x), MUTARR(x), CARR_SIZE(x) * sizeof(ATYPE(x))); \
-                                free(MUTARR(x)); \
+                                kfree(MUTARR(x)); \
                                 MUTARR(x) = T_ARR(x); \
                             }
 #define CLEAR(x) NULLIFY(x); \
                 CARR_SIZE(x) = 0;
 #define CLEAR_SHRINK(x) T_ARR(x) = malloc( SSIZE(x) * sizeof(ATYPE(x)*) ); \
-                        free(MUTARR(x)); \
+                        kfree(MUTARR(x)); \
                         MUTARR(x) = T_ARR(x); \
                         T_ARR(x) = NULL; \
                         ARR_SIZE(x) = SSIZE(x); \
                         CARR_SIZE(x) = 0; \
                         NULLIFY(x);
 #define SIZEOF(x) CARR_SIZE(x)
+#define DELETE(x) if (ARR_SIZE(x)) { \
+                        free(MUTARR(x)); \
+                    }
