@@ -22,14 +22,20 @@ parser* possibly(parser* p) {
 }
 
 state* _eUP(void* data, char* target, state* i_state) {
-    static char* last_ch = NULL;
-    static int tlen;
     parser* p = (parser*) data;
     int st = i_state->index;
+
+    #ifdef SINGLE_THREADED_ONLY
+    static char* last_ch = NULL;
+    static int tlen = 0;
     
     if (target != last_ch) {
         tlen = strlen(target);
+        last_ch = target;
     }
+    #else
+    int tlen = strlen(target);
+    #endif
     
     state* c_state = default_state();
     state* n_state;

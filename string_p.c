@@ -4,7 +4,7 @@
 #include "state.h"
 #include "parsers.h"
 #include "util.h"
-#include "re.h"
+#include "kre.h"
 #include "log.h"
 
 typedef struct {
@@ -118,6 +118,45 @@ parser* mulCharMatchP(bool(*cmp)(char), bool ato, char* err) {
     return dcreate_parser(&_mulCharMP, mcs);
 }
 
+#ifndef OLD_REGEX_LIB
+
+typedef struct {
+    int p_len;
+    char* pat;
+    re_t regex;
+} kregit;
+state* _regP(void* data, char* target, state* i_state) {
+    kregit* krit = (kregit*)data;
+
+    int m_len;
+    int match_start = re_matchp(krit->regex, &target[i_state->index], &m_len);
+    LOG(printf("match info %d %d\n", match_start, m_len));
+    
+    if (match_start == -1 || m_len == 0) {
+        char* err = malloc( (krit->p_len + 27) * sizeof(char) );
+        sprintf(err, "Could not match pattern: %s\n", krit->pat);
+        return create_error_state(err, i_state->index);
+    }
+    
+    char* mat = malloc( (m_len + 1) * sizeof(char) );
+    LOG(printf("mat loc %p\n", mat));
+    memcpy(mat, target + i_state->index + match_start, m_len * sizeof(char));
+    mat[m_len] = '\0';
+    result* res = create_result(STRING, mat);
+    return create_result_state(res, i_state->index + match_start + m_len);
+}
+
+parser* regexP(char* pattern) {
+    kregit* it = malloc(sizeof(kregit));
+    it->p_len = strlen(pattern);
+    it->pat = malloc( (it->p_len + 1) * sizeof(char) );
+    it->regex = re_compile(pattern);
+    strcpy(it->pat, pattern);
+    return dcreate_parser(&_regP, it);
+}
+
+#else
+
 typedef struct {
     int p_len;
     char* pat;
@@ -154,6 +193,8 @@ parser* regexP(char* pattern) {
     strcpy(it->pat, pattern);
     return dcreate_parser(&_regP, it);
 }
+
+#endif
 
 parser* letters;
 parser* digits;
