@@ -3,3 +3,9 @@
 *.csv
 *.a
 dist/
+builds/*
+objbuilds/*
+depfiles/*
+
+*.o
+*.d
