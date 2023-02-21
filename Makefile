@@ -28,7 +28,7 @@ OPT=
 CFLAGS=-Wall -Wextra $(foreach D,$(INCDIRS),-I$(D)) $(OPT)
 
 # grab every *.c file in every CODEDIR
-CFILES=$(foreach D,$(CODEDIRS), $(wildcard $(D)/*.c))
+CFILES=$(foreach D,$(CODEDIRS),$(wildcard $(D)/*.c))
 # regular expression replacement
 OBJECTS=$(patsubst %.c,$(OBJDIR)/%$(OBJEXT),$(CFILES))
 DEPFILES=$(patsubst %.c,$(DEPDIR)/%$(DEPEXT),$(CFILES))
@@ -36,10 +36,10 @@ DEPFILES=$(patsubst %.c,$(DEPDIR)/%$(DEPEXT),$(CFILES))
 DEBUGOBJECTS=$(patsubst %.c,$(OBJDIR)/%.d$(OBJEXT),$(CFILES))
 DEBUGDEPFILES=$(patsubst %.c,$(DEPDIR)/%.d$(DEPEXT),$(CFILES))
 
-DEPENDENTFLAGS=-MP -MD -MT
+DEPENDENTFLAGS=-MP -MMD -MF
 
 define depflags
-	$(DEPENDENTFLAGS) $(patsubst %.c, %(DEPDIR)/%$(2), $(1))
+	$(DEPENDENTFLAGS) $(patsubst %.c,$(DEPDIR)/%$(2),$(1))
 endef
 
 all: $(RELEASE) $(DEBUG)
@@ -47,11 +47,11 @@ all: $(RELEASE) $(DEBUG)
 test: $(TESTEXE)
 
 $(TESTEXE): test/ack$(OBJEXT) test/korolib$(OBJEXT) $(DEBUGOBJECTS)
-		$(CC) $(CFLAGS) -o $@ $^
+		$(CC) $(CFLAGS) -o $@ $^ -lm
 		@echo "Success"
 
 test/%$(OBJEXT): test/%.c
-		$(CC) $(CFLAGS) $(DEPENDENTFLAGS) $(patsubst %.c, %.d, $<) -c -o $@ $<
+		$(CC) $(CFLAGS) $(DEPENDENTFLAGS) $(patsubst %.c,%$(DEPEXT),$<) -c -o $@ $<
 
 ifeq ($(OS), Windows_NT)
 setup:
@@ -87,18 +87,18 @@ $(RELEASE): $(OBJECTS)
 		@echo "Success Release Build"
 
 $(OBJDIR)/%$(OBJEXT): %.c
-		$(CC) $(CFLAGS) $(depflags $<, $(DEPEXT)) -c -o $@ $<
+		$(CC) $(CFLAGS) $(call depflags,$<,$(DEPEXT)) -c -o $@ $<
 
 $(DEBUG): $(DEBUGOBJECTS)
 		$(AR) rcs $@ $^
 		@echo "Success Debug Build"
 
 $(OBJDIR)/%.d$(OBJEXT): %.c
-		$(CC) $(CFLAGS) $(depflags $<, .d$(DEPEXT)) -DDEBUG -ggdb -c -o $@ $<
+		$(CC) $(CFLAGS) $(call depflags,$<,.d$(DEPEXT)) -DDEBUG -ggdb -c -o $@ $<
 
 ifeq ($(OS), Windows_NT)
 clean:
-	del  $(subst /,\\, $(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE))
+	del  $(subst /,\\,$(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE))
 else
 clean:
 	rm -rf $(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE)
