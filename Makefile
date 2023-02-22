@@ -63,6 +63,7 @@ setup:
 		mkdir depfiles\\src\\basic
 		mkdir depfiles\\src\\core
 		mkdir objbuilds
+		mkdir objbuilds\\libs
 		mkdir objbuilds\\src
 		mkdir objbuilds\\src\\basic
 		mkdir objbuilds\\src\\core
@@ -98,10 +99,10 @@ $(OBJDIR)/%.d$(OBJEXT): %.c
 
 ifeq ($(OS), Windows_NT)
 clean:
-	del  $(subst /,\\,$(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE))
+		del  $(subst /,\\,$(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE))
 else
 clean:
-	rm -rf $(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE)
+		rm -rf $(RELEASE) $(DEBUG) $(OBJECTS) $(DEPFILES) $(DEBUGOBJECTS) $(DEBUGDEPFILES) test/ack$(OBJEXT) test/ack$(DEPEXT) test/korolib$(OBJEXT) test/korolib$(DEPEXT) $(TESTEXE)
 endif
 
 -include $(DEPFILES) $(DEBUGDEPFILES) test/ack$(DEPEXT)

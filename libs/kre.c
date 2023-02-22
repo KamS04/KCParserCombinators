@@ -111,9 +111,10 @@ int matchstar(regex_el_t* pattern, const char* text, int* matchlength) {
         (*matchlength)++;
     }
 
-    while (text > prepoint) {
-        if (matchpattern(&pattern[2], text--, matchlength))
+    while (text >= prepoint) {
+        if (matchpattern(&pattern[2], text--, matchlength)) {
             return 1;
+        }
         (*matchlength)--;
     }
 
