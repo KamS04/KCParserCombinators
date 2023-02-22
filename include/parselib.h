@@ -13,9 +13,15 @@ enum DataType {
     RES_ARR = 3
 };
 
+typedef union ResultUnion {
+    char ch;
+    int in;
+    void* ptr;
+} ResultUnion;
+
 typedef struct {
     int data_type;
-    void* data;
+    ResultUnion data;
 } result;
 
 typedef struct {
@@ -97,7 +103,7 @@ ResArrD* create_res_arr(result** arr, int len);
 result* dcreate_resarr_result(void** arr, int len, bool ast, int at);
 result* create_resarr_result(result** arr, int len);
 
-result* create_result(int data_type, void* data);
+result* create_result(int data_type, ResultUnion data);
 
 state* default_state();
 

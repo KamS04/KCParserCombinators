@@ -5,7 +5,7 @@
 #include "util.h"
 
 result* create_char_result(char c) {
-    return create_result(CHAR, (void*) c);
+    return create_result(CHAR, (ResultUnion){ .ch = c });
 }
 
 state* _anyChar(void* _, char* target, state* i_state) {

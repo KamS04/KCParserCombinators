@@ -3,9 +3,18 @@
 
 #ifdef DEBUG
 
-#define LOG(x) KC_PL_DEBUG_MODE && x;
-#define HLOG(x) KC_PL_HDEBUG_MODE && x;
-#define kfree(x) HLOG(printf("freeing %p\n", x)); free(x);
+#define LOG(x)  _Pragma ("GCC diagnostic push") \
+                _Pragma ("GCC diagnostic ignored \"-Wunused-value\"") \
+                KC_PL_DEBUG_MODE && x; \
+                _Pragma ("GCC diagnostic pop")
+#define HLOG(x) _Pragma ("GCC diagnostic push") \
+                _Pragma ("GCC diagnostic ignored \"-Wunused-value\"") \
+                KC_PL_HDEBUG_MODE && x; \
+                _Pragma ("GCC diagnostic pop")
+#define kfree(x)    _Pragma ("GCC diagnostic push") \
+                    _Pragma ("GCC diagnostic ignored \"-Wunused-value\"") \
+                    HLOG(printf("freeing %p\n", x)); free(x); \
+                    _Pragma ("GCC diagnostic pop")
 
 #else
 

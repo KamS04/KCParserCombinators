@@ -62,7 +62,7 @@ state* _eUP(void* data, char* target, state* i_state) {
     char* sres = malloc((en-st+1) * sizeof(char));
     memcpy(sres, target+st, (en-st));
     sres[en-st] = '\0';
-    result* res = create_result(STRING, sres);
+    result* res = create_result(STRING, (ResultUnion){ .ptr = sres });
     return create_result_state(res, en);
 }
 parser* everythingUntil(parser* p, bool check_till_end) {
@@ -73,7 +73,7 @@ state* _aCE(void* data, char* target, state* i_state) {
     parser* p = (parser*) data;
     state* c_state = evaluate(p, target, i_state);
     if (c_state->is_error) {
-        result* res = create_result(CHAR, (void*) target[i_state->index]);
+        result* res = create_result(CHAR, (ResultUnion){ .ch = target[i_state->index] });
         return create_result_state(res, i_state->index + 1);
     }
     char* err = malloc(34 * sizeof(char));
@@ -84,7 +84,7 @@ parser* anyCharExcept(parser* p) {
     return dcreate_parser(_aCE, p);
 }
 
-typedef struct {
+typedef struct _cit {
     int p_size;
     parser** parsers;
 } _cit;
@@ -127,9 +127,10 @@ state* _sOP(void* data, char* target, state* i_state) {
     _cit* it = (_cit*) data;
     parser** ps = it->parsers;
     state* s_state = i_state;
-    result** resarr = malloc( it->p_size * sizeof(result*) );
+    // in this case every element will be a ptr
+    ResultUnion* resarr = malloc( it->p_size * sizeof(result*) );
     for (int i = 0; i < it->p_size; i++) {
-        resarr[i] = NULL;
+        resarr[i].ptr = NULL;
     }
     bool sequenceBreak = false;
     for (int i = 0; i < it->p_size; i++) {
@@ -139,12 +140,12 @@ state* _sOP(void* data, char* target, state* i_state) {
             sequenceBreak = true;
             break;
         }
-        resarr[i] = s_state->result;
+        resarr[i].ptr = s_state->result;
     }
     if (sequenceBreak) {
         for (int i = 0; i < it->p_size; i++) {
-            if (resarr[i] != NULL) {
-                deallocate_result(resarr[i]);
+            if (resarr[i].ptr != NULL) {
+                deallocate_result(resarr[i].ptr);
             }
         }
         kfree(resarr);
@@ -195,7 +196,7 @@ mapresult* _bM(result* res, void *data) {
         exit(3);
     }
 
-    ResArrD* rad = (ResArrD*) res->data;
+    ResArrD* rad = (ResArrD*) res->data.ptr;
     result** p = (result**) rad->arr;
     mr->res = p[1];
 
@@ -223,8 +224,8 @@ typedef struct {
 } _tpit;
 state* _sPB(void* data, char* target, state* i_state) {
     _tpit* it = (_tpit*) data;
-    #define res_arr_type result*
-    ALLOCATE_SN(res_arr, 10, true, NULL);
+    #define res_arr_type ResultUnion
+    ALLOCATE_SN(res_arr, 10, true, (ResultUnion){ .ptr = NULL });
     
     state* v_state = NULL;
     state* s_state = NULL;
@@ -240,7 +241,7 @@ state* _sPB(void* data, char* target, state* i_state) {
             e_state = v_state;
             break;
         }
-        APPEND(res_arr, v_state->result);
+        APPEND(res_arr, (ResultUnion){ .ptr = v_state->result });
         LOG(puts("sepby: added to array"));
 
         s_state = evaluate(it->p2, target, v_state);
@@ -257,8 +258,8 @@ state* _sPB(void* data, char* target, state* i_state) {
         LOG(puts("in estate is not null"));
         for (int i = 0 ; i < ARR_SIZE(res_arr); i++) {
             LOG(printf("estate dealloc loop #%d\n", i));
-            if (MUTARR(res_arr)[i] != NULL) {
-                deallocate_result(MUTARR(res_arr)[i]);
+            if (MUTARR(res_arr)[i].ptr != NULL) {
+                deallocate_result(MUTARR(res_arr)[i].ptr);
             }
         }
         LOG(puts("done estate loop"));
@@ -311,8 +312,8 @@ typedef struct {
     int all_type;
 } ManyData;
 state* _mP(void* data, char* target, state* i_state) {
-    #define res_arr_type void*
-    ALLOCATE(res_arr, 10);
+    #define res_arr_type ResultUnion
+    ALLOCATE_SN(res_arr, 10, 0, (ResultUnion){ .ptr = NULL });
     ManyData* md = (ManyData*) data;
     parser* p = md->p;
 
@@ -326,7 +327,7 @@ state* _mP(void* data, char* target, state* i_state) {
             if (md->all_same_type) {
                 APPEND(res_arr, v_state->result->data);
             } else {
-                APPEND(res_arr, v_state->result);
+                APPEND(res_arr, (ResultUnion){ .ptr = v_state->result });
             }
             if (n_state != i_state) {
                 if (md->all_same_type) {

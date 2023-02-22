@@ -1,3 +1,5 @@
+.vscode
+
 *.gch
 *.exe
 *.csv

@@ -35,6 +35,7 @@ parser* ddcreate_parser( state*(*parse)(void*,char*, state*), void* data, void(*
     dpf->parserfunc = parse;
     dpf->data = data;
     dpf->noc = noc;
+    dpf->dealloc_data = dealloc_data;
 
     n_parser->type = Parser;
     n_parser->data = dpf;
@@ -323,7 +324,7 @@ state* evaluate_koro(parser* p, char* c, state* i_state) {
         i_state = n_state;
     }
 
-    LOG(printf("KORO: res %p rtype %d rdpoint %p\n", kctx->fin_result, ((result*)kctx->fin_result)->data_type, ((result*)kctx->fin_result)->data_type));
+    LOG(printf("KORO: res %p rtype %d rdpoint %d\n", kctx->fin_result, ((result*)kctx->fin_result)->data_type, ((result*)kctx->fin_result)->data_type));
     state* res = create_result_state(kctx->fin_result, n_state->index);
     kfree(kctx);
     return res;
@@ -344,5 +345,8 @@ state* evaluate(parser* p, char* c, state* i_state) {
             return evaluate_manipulate(p, c, i_state);
         case Koroutine:
             return evaluate_koro(p, c, i_state);
-    };
+        default:
+            printf("Unknown Parser Type: %d\n", p->type);
+            exit(3);
+    }
 }

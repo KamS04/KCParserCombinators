@@ -18,7 +18,7 @@ state* _strP(void* data, char* target, state* i_state) {
         // SUCCESS
         char* ms = malloc(ss->len * sizeof(char));
         memcpy(ms, ss->search, ss->len * sizeof(char));
-        result* res = create_result(STRING, ms);
+        result* res = create_result(STRING, (ResultUnion){ .ptr = ms });
         return create_result_state(res, i_state->index + ss->len - 1);
     }
     if (ss->snf == NULL) {
@@ -56,7 +56,7 @@ state* _lUstrP(void* data, char* target, state* i_state) {
         kfree(n_str);
         char* ms = malloc(ss->len * sizeof(char));
         memcpy(ms, ss->search, ss->len);
-        result* res = create_result(STRING, ms);
+        result* res = create_result(STRING, (ResultUnion){ .ptr = ms });
         return create_result_state(res, i_state->index + ss->len - 1);
     }
 
@@ -90,15 +90,15 @@ state* _mulCharMP(void* data, char* target, state* i_state) {
     int en = _find_last_match(i_state->index, strlen(target), target, mcs->cmp);
     int matched = en - i_state->index + 1;
     if (matched > 0 || !mcs->ato) {
-        result* res = create_result(STRING, NULL);
+        result* res = create_result(STRING, (ResultUnion){ .ptr = NULL });
         LOG(puts("something matched"));
         if (matched > 0) {
             LOG(printf("%d matched chars\n", matched));
-            res->data = malloc( (matched+1) * sizeof(char) );
+            res->data.ptr = malloc( (matched+1) * sizeof(char) );
             LOG(puts("finished malloc"));
-            memcpy(res->data, target + i_state->index, matched);
+            memcpy(res->data.ptr, target + i_state->index, matched);
             LOG(puts("finished data copy"));
-            ((char*) res->data)[matched] = '\0';
+            ((char*) res->data.ptr)[matched] = '\0';
             LOG(puts("finished term put"));
         }
         return create_result_state(res, i_state->index + matched);
@@ -142,7 +142,7 @@ state* _regP(void* data, char* target, state* i_state) {
     LOG(printf("mat loc %p\n", mat));
     memcpy(mat, target + i_state->index + match_start, m_len * sizeof(char));
     mat[m_len] = '\0';
-    result* res = create_result(STRING, mat);
+    result* res = create_result(STRING, (ResultUnion){ .ptr = mat });
     return create_result_state(res, i_state->index + match_start + m_len);
 }
 

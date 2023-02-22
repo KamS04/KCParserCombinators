@@ -203,20 +203,21 @@ char* dresult_to_string(result* rs, bool nl) {
 
     switch (rs->data_type) {
         case INTEGER:
-            v_size = int_size((int) rs->data);
+            v_size = int_size(rs->data.in);
             break;
         case STRING:
-            v_size = strlen(rs->data);
+            v_size = strlen((char*)rs->data.ptr);
             break;
         case CHAR:
             v_size = 1;
             break;
         case RES_ARR:
             v_size = 4; // {  }
-            _rad = (ResArrD*) rs->data;
+            _rad = (ResArrD*) rs->data.ptr;
             _rarr = malloc( _rad->a_len * sizeof(char*) );
             if (_rad->all_same_type) {
-                result* r = create_result(_rad->all_type, NULL);
+                // Everything is ResultUnion
+                result* r = create_result(_rad->all_type, (ResultUnion){ .ptr = NULL });
                 for (int i = 0; i < _rad->a_len; i++) {
                     r->data = _rad->arr[i];
                     _rarr[i] = dresult_to_string(r, false);
@@ -226,15 +227,15 @@ char* dresult_to_string(result* rs, bool nl) {
                     }
                 }
             } else {
+                // Everything is a pointer to a result
                 for (int i = 0; i < _rad->a_len; i++) {
-                    _rarr[i] = dresult_to_string(_rad->arr[i], false);
+                    _rarr[i] = dresult_to_string( (result*)_rad->arr[i].ptr, false);
                     v_size += strlen(_rarr[i]);
                     if (i + 1 != _rad->a_len) {
                         v_size += 2; // ", "
                     }
                 }
             }
-
             
             break;
         default: {
@@ -263,19 +264,21 @@ char* dresult_to_string(result* rs, bool nl) {
         dpos = 22;
     }
 
-    char* s = rs->data;
     switch (rs->data_type) {
         case INTEGER:
             format[dpos] = 'd';
+            sprintf(fstr, format, rs->data_type, rs->data.in);
             break;
         case STRING:
+            sprintf(fstr, format, rs->data_type, rs->data.ptr);
             break;
         case CHAR:
             format[dpos] = 'c';
+            sprintf(fstr, format, rs->data_type, rs->data.ch);
             break;
-        case RES_ARR:
+        case RES_ARR: {
             // WRITE DATA STRING TO s
-            s = malloc( (v_size + 1) * sizeof(char) );
+            char* s = malloc( (v_size + 1) * sizeof(char) );
             s[0] = '{'; s[1] = ' ';
             int off = 2;
             for (int i = 0; i < _rad->a_len; i++) {
@@ -291,16 +294,15 @@ char* dresult_to_string(result* rs, bool nl) {
             }
             kfree(_rarr);
             strcpy(s+off, " }");
+            sprintf(fstr, format, rs->data_type, s);
+            kfree(s);
+        }
+        // if data_type is not one of these, then will never reach this place
     }
-    sprintf(fstr, format, rs->data_type, s);
-    if (s != rs->data) {
-        kfree(s);
-    }
-
     return fstr;
 }
 
-ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at) {
+ResArrD* dcreate_res_arr(ResultUnion* arr, int len, bool ast, int at) {
     ResArrD* rad = malloc(sizeof(ResArrD));
     rad->a_len = len;
     rad->arr = arr;
@@ -308,22 +310,28 @@ ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at) {
     rad->all_type = at;
     return rad;
 }
-ResArrD* create_res_arr(result** arr, int len) {
+ResArrD* create_res_arr(ResultUnion* arr, int len) {
     return dcreate_res_arr(arr, len, 0, 0);
 }
 
-result* dcreate_resarr_result(void** arr, int len, bool ast, int at) {
-    return create_result(RES_ARR, dcreate_res_arr(arr, len, ast, at) );
+result* dcreate_resarr_result(ResultUnion* arr, int len, bool ast, int at) {
+    return create_result(RES_ARR, (ResultUnion){ .ptr = dcreate_res_arr(arr, len, ast, at) });
 }
 
-result* create_resarr_result(result** arr, int len) {
+result* create_resarr_result(ResultUnion* arr, int len) {
     return dcreate_resarr_result(arr, len, 0, 0);
 }
 
-result* create_result(int data_type, void* data) {
+result* create_result(int data_type, ResultUnion data) {
     result* n_result = malloc(sizeof(result));
     n_result->data_type = data_type;
-    n_result->data = data;
+    if (data_type == INTEGER) {
+        n_result->data.in = data.in;
+    } else if (data_type == CHAR) {
+        n_result->data.ch = data.ch;
+    } else {
+        n_result->data.ptr = data.ptr;
+    }
     return n_result;
 }
 

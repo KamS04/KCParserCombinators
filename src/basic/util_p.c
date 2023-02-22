@@ -13,7 +13,7 @@ parser* fail(char* error) {
 
 state* _eOI(void* data, char* target, state* i_state) {
     if (i_state->index >= strlen(target)) {
-        result* res = create_result(INTEGER, 1);
+        result* res = create_result(INTEGER, (ResultUnion){ .in = 1 });
         return create_result_state(res, i_state->index);
     } else {
         char* err = malloc( 17 * sizeof(char));

@@ -9,13 +9,20 @@ enum DataType {
     RES_ARR = 3
 };
 
+typedef union ResultUnion {
+    char ch;
+    int in;
+    void* ptr;
+} ResultUnion;
+
 typedef struct {
     int data_type;
-    void* data;
+    ResultUnion data;
 } result;
 
 typedef struct {
-    void** arr;
+    ResultUnion* arr;
+    // void** arr;
     int a_len;
     bool all_same_type;
     int all_type;
@@ -44,12 +51,12 @@ void set_global_dealloc_data(dealloc_str_data* d);
 void deallocate_result(result* res);
 void deallocate_state(state* st);
 
-ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at);
-ResArrD* create_res_arr(result** arr, int len);
-result* dcreate_resarr_result(void** arr, int len, bool ast, int at);
-result* create_resarr_result(result** arr, int len);
+ResArrD* dcreate_res_arr(ResultUnion* arr, int len, bool ast, int at);
+ResArrD* create_res_arr(ResultUnion* arr, int len);
+result* dcreate_resarr_result(ResultUnion* arr, int len, bool ast, int at);
+result* create_resarr_result(ResultUnion* arr, int len);
 
-result* create_result(int data_type, void* data);
+result* create_result(int data_type, ResultUnion data);
 
 state* default_state();
 
