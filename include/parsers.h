@@ -4,44 +4,44 @@
 #include "korolib.h"
 #include<stdbool.h>
 
-typedef struct {
+typedef struct parser {
     int type;
     void* data;
 } parser;
-typedef struct {
+typedef struct mapresult {
     result* res;
     bool dealloc_old;
 } mapresult;
 
-typedef mapresult*(*mappertype)(result*,void*);
+typedef state*(*parserfunc_t)(DataUnion,char*,state*);
+typedef void(*ddallocfunc_t)(DataUnion);
+typedef parser*(*chooserfunc_t)(state*);
+typedef state*(*manipfunc_t)(state*);
+typedef mapresult*(*mappertype)(result*,DataUnion);
 
 state* run(parser* p, char* c);
 
 state* evaluate(parser* p, char* c, state* i_state);
 
-parser* create_parser( state* (*parse)(void*,char*, state*) );
-parser* dcreate_parser( state* (*parse)(void*,char*, state*), void* data );
-parser* ddcreate_parser( state* (*parse)(void*,char*, state*), void* data, void(*dealloc_data)(void*), bool noc );
+parser* create_parser( parserfunc_t parse );
+parser* dcreate_parser( parserfunc_t parse, DataUnion data );
+parser* ddcreate_parser( parserfunc_t parser, DataUnion data, ddallocfunc_t dealloc_data, bool noc);
 
 void deallocate_parser(parser* p);
 
-parser* map( parser* in, mappertype mapper, bool noc, void* data);
+parser* map( parser* in, mappertype mapper, bool noc, DataUnion data);
 parser* cmap(parser* in, mappertype mapper);
 
-parser* chain( parser* in, parser*(*chooser)(state*), bool noc, bool dp);
-parser* cchain(parser* in, parser*(*chooser)(state*));
+parser* chain( parser* in, chooserfunc_t chooser, bool noc, bool dp);
+parser* cchain(parser* in, chooserfunc_t chooser);
+parser* ndchain(parser* in, chooserfunc_t chooser);
 
 parser* then( parser* in, parser* next, bool noc);
 parser* cthen(parser* in, parser* next);
 
-parser* manipulate( parser* in, state*(*manipulator)(state*), bool noc);
-parser* cmanipulate(parser* in, state*(*manipulator)(state*));
+parser* manipulate( parser* in, manipfunc_t manipulator, bool noc);
+parser* cmanipulate(parser* in, manipfunc_t manipulator);
 
-parser* korop(void(*koro)(koroctx*), bool noc);
-
-typedef struct {
-    parser* original;
-    result* (*mapper)(result*);
-} map_parser;
+parser* korop(koroutinefunc_t koro, bool noc);
 
 #endif

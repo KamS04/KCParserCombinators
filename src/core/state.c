@@ -18,15 +18,15 @@ void create_deafault_deallocators() {
     int tmp_data_types[] = { STRING, INTEGER, CHAR, RES_ARR };
     tmp->data_types = malloc(pdeallocs * sizeof(int));
     memcpy(tmp->data_types, tmp_data_types, pdeallocs * sizeof(int));
-    void* deallocers[] = {
-        &def_dealloc_string,
-        &def_dealloc,
-        &def_dealloc,
-        &def_dealloc_resarr
+    dallocresfunc_t deallocers[] = {
+        def_dealloc_string,
+        def_dealloc,
+        def_dealloc,
+        def_dealloc_resarr
     };
     tmp->deallocers = malloc(pdeallocs * sizeof(void*));
     memcpy(tmp->deallocers, deallocers, pdeallocs * sizeof(void*));
-    void* stringers[] = {
+    stringerfunc_t stringers[] = {
         NULL,
         NULL,
         NULL,
@@ -102,8 +102,8 @@ void deallocate_result(result* res) {
         puts("Specify your fucking data types and deallocators before using the Parserlib dumbass.");
         exit(3);
     }
-
-    void (*dealloc_handler)(result*) = global_state_deallocators->deallocers[idx];
+    
+    dallocresfunc_t dealloc_handler = global_state_deallocators->deallocers[idx];
     dealloc_handler(res);
 }
 
@@ -216,8 +216,8 @@ char* dresult_to_string(result* rs, bool nl) {
             _rad = (ResArrD*) rs->data.ptr;
             _rarr = malloc( _rad->a_len * sizeof(char*) );
             if (_rad->all_same_type) {
-                // Everything is ResultUnion
-                result* r = create_result(_rad->all_type, (ResultUnion){ .ptr = NULL });
+                // Everything is DataUnion
+                result* r = create_result(_rad->all_type, (DataUnion){ .ptr = NULL });
                 for (int i = 0; i < _rad->a_len; i++) {
                     r->data = _rad->arr[i];
                     _rarr[i] = dresult_to_string(r, false);
@@ -302,7 +302,7 @@ char* dresult_to_string(result* rs, bool nl) {
     return fstr;
 }
 
-ResArrD* dcreate_res_arr(ResultUnion* arr, int len, bool ast, int at) {
+ResArrD* dcreate_res_arr(DataUnion* arr, int len, bool ast, int at) {
     ResArrD* rad = malloc(sizeof(ResArrD));
     rad->a_len = len;
     rad->arr = arr;
@@ -310,19 +310,19 @@ ResArrD* dcreate_res_arr(ResultUnion* arr, int len, bool ast, int at) {
     rad->all_type = at;
     return rad;
 }
-ResArrD* create_res_arr(ResultUnion* arr, int len) {
+ResArrD* create_res_arr(DataUnion* arr, int len) {
     return dcreate_res_arr(arr, len, 0, 0);
 }
 
-result* dcreate_resarr_result(ResultUnion* arr, int len, bool ast, int at) {
-    return create_result(RES_ARR, (ResultUnion){ .ptr = dcreate_res_arr(arr, len, ast, at) });
+result* dcreate_resarr_result(DataUnion* arr, int len, bool ast, int at) {
+    return create_result(RES_ARR, (DataUnion){ .ptr = dcreate_res_arr(arr, len, ast, at) });
 }
 
-result* create_resarr_result(ResultUnion* arr, int len) {
+result* create_resarr_result(DataUnion* arr, int len) {
     return dcreate_resarr_result(arr, len, 0, 0);
 }
 
-result* create_result(int data_type, ResultUnion data) {
+result* create_result(int data_type, DataUnion data) {
     result* n_result = malloc(sizeof(result));
     n_result->data_type = data_type;
     if (data_type == INTEGER) {

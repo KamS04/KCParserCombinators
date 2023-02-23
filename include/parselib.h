@@ -13,55 +13,59 @@ enum DataType {
     RES_ARR = 3
 };
 
-typedef union ResultUnion {
+typedef union DataUnion {
     char ch;
     int in;
     void* ptr;
-} ResultUnion;
+} DataUnion;
 
-typedef struct {
+typedef struct result {
     int data_type;
-    ResultUnion data;
+    DataUnion data;
 } result;
 
-typedef struct {
-    void** arr;
+typedef struct ResArrD {
+    DataUnion* arr;
+    // void** arr;
     int a_len;
     bool all_same_type;
     int all_type;
 } ResArrD;
 
-typedef struct {
+typedef struct state {
     bool is_error;
     char* error;
     int index;
     result* result;
     bool dealloc_old;
+    bool error_from_malloc;
 } state;
 
-typedef struct {
+typedef void(*dallocresfunc_t)(result*);
+typedef char*(*stringerfunc_t)(result*,bool);
+
+typedef struct dealloc_str_data {
     int size;
     int* data_types;
-    void(**deallocers)(result*);
-    char*(**stringers)(result*, bool);
+    dallocresfunc_t* deallocers;
+    stringerfunc_t* stringers;
 } dealloc_str_data;
 
 // -- parsers.h --
-typedef struct {
+typedef struct parser {
     int type;
     void* data;
 } parser;
-typedef struct {
+typedef struct mapresult {
     result* res;
     bool dealloc_old;
 } mapresult;
 
-typedef mapresult*(*mappertype)(result*,void*);
-
-typedef struct {
-    parser* original;
-    result* (*mapper)(result*);
-} map_parser;
+typedef state*(*parserfunc_t)(DataUnion,char*,state*);
+typedef void(*ddallocfunc_t)(DataUnion);
+typedef parser*(*chooserfunc_t)(state*);
+typedef state*(*manipfunc_t)(state*);
+typedef mapresult*(*mappertype)(result*,DataUnion);
 
 // Functions
 
@@ -98,12 +102,12 @@ void set_global_dealloc_data(dealloc_str_data* d);
 void deallocate_result(result* res);
 void deallocate_state(state* st);
 
-ResArrD* dcreate_res_arr(void** arr, int len, bool ast, int at);
-ResArrD* create_res_arr(result** arr, int len);
-result* dcreate_resarr_result(void** arr, int len, bool ast, int at);
-result* create_resarr_result(result** arr, int len);
+ResArrD* dcreate_res_arr(DataUnion* arr, int len, bool ast, int at);
+ResArrD* create_res_arr(DataUnion* arr, int len);
+result* dcreate_resarr_result(DataUnion* arr, int len, bool ast, int at);
+result* create_resarr_result(DataUnion* arr, int len);
 
-result* create_result(int data_type, ResultUnion data);
+result* create_result(int data_type, DataUnion data);
 
 state* default_state();
 
@@ -132,25 +136,26 @@ state* run(parser* p, char* c);
 
 state* evaluate(parser* p, char* c, state* i_state);
 
-parser* create_parser( state* (*parse)(void*,char*, state*) );
-parser* dcreate_parser( state* (*parse)(void*,char*, state*), void* data );
-parser* ddcreate_parser( state* (*parse)(void*,char*, state*), void* data, void(*dealloc_data)(void*), bool noc );
+parser* create_parser( parserfunc_t parse );
+parser* dcreate_parser( parserfunc_t parse, DataUnion data );
+parser* ddcreate_parser( parserfunc_t parser, DataUnion data, ddallocfunc_t dealloc_data, bool noc);
 
 void deallocate_parser(parser* p);
 
-parser* map( parser* in, mappertype mapper, bool noc, void* data);
+parser* map( parser* in, mappertype mapper, bool noc, DataUnion data);
 parser* cmap(parser* in, mappertype mapper);
 
-parser* chain( parser* in, parser*(*chooser)(state*), bool noc, bool dp);
-parser* cchain(parser* in, parser*(*chooser)(state*));
+parser* chain( parser* in, chooserfunc_t chooser, bool noc, bool dp);
+parser* cchain(parser* in, chooserfunc_t chooser);
+parser* ndchain(parser* in, chooserfunc_t chooser);
 
 parser* then( parser* in, parser* next, bool noc);
 parser* cthen(parser* in, parser* next);
 
-parser* manipulate( parser* in, state*(*manipulator)(state*), bool noc);
-parser* cmanipulate(parser* in, state*(*manipulator)(state*));
+parser* manipulate( parser* in, manipfunc_t manipulator, bool noc);
+parser* cmanipulate(parser* in, manipfunc_t manipulator);
 
-parser* korop(void(*koro)(koroctx*), bool noc);
+parser* korop(koroutinefunc_t koro, bool noc);
 
 // -- string_p.h --
 parser* strP(char* search);

@@ -7,18 +7,19 @@
 #include "kre.h"
 #include "log.h"
 
-typedef struct {
+typedef struct _ssit {
     char* search;
     char* snf;
     int len; // Includes \0
 } _ssit;
-state* _strP(void* data, char* target, state* i_state) {
-    _ssit* ss = (_ssit*) data;
+state* _strP(DataUnion data, char* target, state* i_state) {
+    _ssit* ss = data.ptr;
+
     if (strncmp(ss->search, target + i_state->index, ss->len-1) == 0) {
         // SUCCESS
         char* ms = malloc(ss->len * sizeof(char));
         memcpy(ms, ss->search, ss->len * sizeof(char));
-        result* res = create_result(STRING, (ResultUnion){ .ptr = ms });
+        result* res = create_result(STRING, (DataUnion){ .ptr = ms });
         return create_result_state(res, i_state->index + ss->len - 1);
     }
     if (ss->snf == NULL) {
@@ -34,11 +35,11 @@ parser* strP(char* search) {
     ss->search = search;
     ss->snf = NULL;
     ss->len = strlen(search) + 1;
-    return dcreate_parser(&_strP, ss);
+    return dcreate_parser(_strP, (DataUnion){ .ptr = ss });
 }
 
-state* _lUstrP(void* data, char* target, state* i_state) {
-    _ssit* ss = (_ssit*) data;
+state* _lUstrP(DataUnion data, char* target, state* i_state) {
+    _ssit* ss = data.ptr;
     int t_len = strlen(target);
     if (ss->len-1 > t_len - i_state->index) {
         state* s = error_here(i_state, "Target is not long enough to check");
@@ -56,7 +57,7 @@ state* _lUstrP(void* data, char* target, state* i_state) {
         kfree(n_str);
         char* ms = malloc(ss->len * sizeof(char));
         memcpy(ms, ss->search, ss->len);
-        result* res = create_result(STRING, (ResultUnion){ .ptr = ms });
+        result* res = create_result(STRING, (DataUnion){ .ptr = ms });
         return create_result_state(res, i_state->index + ss->len - 1);
     }
 
@@ -76,21 +77,21 @@ parser* upperLowerStrP(char* search) {
     ss->snf = NULL;
     memcpy(ss->search, search, ss->len);
     lowerString(ss->search, ss->len-1);
-    return dcreate_parser(&_lUstrP, ss);
+    return dcreate_parser(_lUstrP, (DataUnion){ .ptr = ss });
 }
 
-typedef struct {
+typedef struct _mcsit {
     bool(*cmp)(char);
     bool ato;
     int errlen;
     char* errstr;
 } _mcsit;
-state* _mulCharMP(void* data, char* target, state* i_state) {
-    _mcsit* mcs = (_mcsit*) data;
+state* _mulCharMP(DataUnion data, char* target, state* i_state) {
+    _mcsit* mcs = data.ptr;
     int en = _find_last_match(i_state->index, strlen(target), target, mcs->cmp);
     int matched = en - i_state->index + 1;
     if (matched > 0 || !mcs->ato) {
-        result* res = create_result(STRING, (ResultUnion){ .ptr = NULL });
+        result* res = create_result(STRING, (DataUnion){ .ptr = NULL });
         LOG(puts("something matched"));
         if (matched > 0) {
             LOG(printf("%d matched chars\n", matched));
@@ -115,18 +116,18 @@ parser* mulCharMatchP(bool(*cmp)(char), bool ato, char* err) {
     mcs->errlen = snprintf(NULL, 0, err, 'c') + 1;
     mcs->errstr = malloc((strlen(err) + 1) * sizeof(char));
     strcpy(mcs->errstr, err);
-    return dcreate_parser(&_mulCharMP, mcs);
+    return dcreate_parser(_mulCharMP, (DataUnion){ .ptr = mcs });
 }
 
 #ifndef OLD_REGEX_LIB
 
-typedef struct {
+typedef struct kregit {
     int p_len;
     char* pat;
     re_t regex;
 } kregit;
-state* _regP(void* data, char* target, state* i_state) {
-    kregit* krit = (kregit*)data;
+state* _regP(DataUnion data, char* target, state* i_state) {
+    kregit* krit = data.ptr;
 
     int m_len;
     int match_start = re_matchp(krit->regex, &target[i_state->index], &m_len);
@@ -142,7 +143,7 @@ state* _regP(void* data, char* target, state* i_state) {
     LOG(printf("mat loc %p\n", mat));
     memcpy(mat, target + i_state->index + match_start, m_len * sizeof(char));
     mat[m_len] = '\0';
-    result* res = create_result(STRING, (ResultUnion){ .ptr = mat });
+    result* res = create_result(STRING, (DataUnion){ .ptr = mat });
     return create_result_state(res, i_state->index + match_start + m_len);
 }
 
@@ -152,17 +153,17 @@ parser* regexP(char* pattern) {
     it->pat = malloc( (it->p_len + 1) * sizeof(char) );
     it->regex = re_compile(pattern);
     strcpy(it->pat, pattern);
-    return dcreate_parser(&_regP, it);
+    return dcreate_parser(_regP, (DataUnion){ .ptr = it });
 }
 
 #else
 
-typedef struct {
+typedef struct regit {
     int p_len;
     char* pat;
 } regit;
-state* _regP(void* data, char* target, state* i_state) {
-    regit* rit = (regit*) data;
+state* _regP(DataUnion data, char* target, state* i_state) {
+    regit* rit = (DataUnion)data.ptr;
 
     static char* l_p_ptr;
     static re_t l_c_ptr;
@@ -172,7 +173,7 @@ state* _regP(void* data, char* target, state* i_state) {
     }
 
     int m_len;
-    int match_idx = re_matchp(l_c_ptr, target + i_state->index, &m_len);
+    int match_idx = re_matchp(l_c_ptr, &target[i_state->index], &m_len);
     LOG(printf("match info %d %d\n", m_len, match_idx));
     if (match_idx != 0 || m_len == 0) {
         char* err = malloc( (rit->p_len + 26) * sizeof(char) );
@@ -191,7 +192,7 @@ parser* regexP(char* pattern) {
     it->p_len = strlen(pattern);
     it->pat = malloc( (it->p_len + 1) * sizeof(char));
     strcpy(it->pat, pattern);
-    return dcreate_parser(&_regP, it);
+    return dcreate_parser(_regP, (DataUnion){ .ptr = it });
 }
 
 #endif
@@ -201,7 +202,7 @@ parser* digits;
 parser* whitespace;
 
 void init_core_string_parsers() {
-    letters = mulCharMatchP(&is_letter, true, "Letters not found");
-    digits = mulCharMatchP(&is_digit, true, "Digits not found");
-    whitespace = mulCharMatchP(&is_whitespace, true, "Found '%c' instead of a whitespace");
+    letters = mulCharMatchP(is_letter, true, "Letters not found");
+    digits = mulCharMatchP(is_digit, true, "Digits not found");
+    whitespace = mulCharMatchP(is_whitespace, true, "Found '%c' instead of a whitespace");
 }

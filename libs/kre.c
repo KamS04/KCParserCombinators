@@ -15,7 +15,7 @@
 
 #include "kre.h"
 
-typedef enum {
+typedef enum RegElType {
     UNUSED,
     DOT,
     BEGIN,

@@ -16,20 +16,20 @@ enum ParserType{
     Koroutine,
 };
 
-typedef struct {
-    state*(*parserfunc)(void*,char*,state*);
-    void* data;
-    void(*dealloc_data)(void*);
+typedef struct funcparse {
+    parserfunc_t parserfunc;
+    DataUnion data;
+    ddallocfunc_t dealloc_data;
     bool noc;
 } funcparse;
 
-parser* create_parser( state*(*parse)(void*,char*,state*) ) {
-    return ddcreate_parser(parse, NULL, NULL, false);
+parser* create_parser(parserfunc_t parse) {
+    return ddcreate_parser(parse, (DataUnion){ .ptr = NULL }, NULL, false);
 }
-parser* dcreate_parser( state*(*parse)(void*,char*, state*), void* data ) {
+parser* dcreate_parser(parserfunc_t parse, DataUnion data ) {
     return ddcreate_parser(parse, data, NULL, false);
 }
-parser* ddcreate_parser( state*(*parse)(void*,char*, state*), void* data, void(*dealloc_data)(void*), bool noc ) {
+parser* ddcreate_parser(parserfunc_t parse, DataUnion data, ddallocfunc_t dealloc_data, bool noc ) {
     parser* n_parser = malloc(sizeof(parser));
     funcparse* dpf = malloc(sizeof(funcparse));
     dpf->parserfunc = parse;
@@ -50,13 +50,14 @@ void deallocate_basic_parser(parser* p) {
     kfree(p);
 }
 
-typedef struct {
+// TODO add datadealloc to mapitem
+typedef struct mapitem {
     parser* first;
-    mapresult*(*mapper)(result*,void*);
-    void* mapper_data;
+    mappertype mapper;
+    DataUnion mapper_data;
     bool noc;
 } mapitem;
-parser* map( parser* in, mappertype mapper, bool noc, void* data) {
+parser* map( parser* in, mappertype mapper, bool noc, DataUnion data) {
     mapitem* item = malloc(sizeof(mapitem));
     item->first = in;
     item->mapper = mapper;
@@ -70,7 +71,7 @@ parser* map( parser* in, mappertype mapper, bool noc, void* data) {
     return n_parser;
 }
 parser* cmap(parser* in, mappertype mapper) {
-    return map(in, mapper, false, NULL);
+    return map(in, mapper, false, (DataUnion){ .ptr = NULL });
 }
 void deallocate_mapper(parser* p) {
     if (p->type != Map) return;
@@ -82,13 +83,13 @@ void deallocate_mapper(parser* p) {
     return;
 }
 
-typedef struct {
+typedef struct chainitem {
     parser* first;
-    parser*(*chooser)(state*);
+    chooserfunc_t chooser;
     bool noc;
     bool dp;
 } chainitem;
-parser* chain( parser* in, parser*(*chooser)(state*), bool noc, bool dp) {
+parser* chain( parser* in, chooserfunc_t chooser, bool noc, bool dp) {
     chainitem* item = malloc(sizeof(chainitem));
     item->first = in;
     item->chooser = chooser;
@@ -101,10 +102,10 @@ parser* chain( parser* in, parser*(*chooser)(state*), bool noc, bool dp) {
 
     return n_p;
 }
-parser* cchain(parser* in, parser*(*chooser)(state*)) {
+parser* cchain(parser* in, chooserfunc_t chooser) {
     return chain(in, chooser, false, true);
 }
-parser* ndchain(parser* in, parser*(*chooser)(state*)) {
+parser* ndchain(parser* in, chooserfunc_t chooser) {
     return chain(in, chooser, false, false);
 }
 
@@ -117,7 +118,7 @@ void deallocate_chain(parser* p) {
     kfree(item);
 }
 
-typedef struct {
+typedef struct thenitem {
     parser* first;
     parser* second;
     bool noc;
@@ -148,12 +149,12 @@ void deallocate_then(parser* p) {
     return;
 }
 
-typedef struct {
+typedef struct maniitem {
     parser* first;
-    state*(*manipulator)(state*);
+    manipfunc_t manipulator;
     bool noc;
 } maniitem;
-parser* manipulate(parser* in, state*(*manipulator)(state*), bool noc) {
+parser* manipulate(parser* in, manipfunc_t manipulator, bool noc) {
     maniitem* item = malloc(sizeof(maniitem));
     item->first = in;
     item->manipulator = manipulator;
@@ -165,7 +166,7 @@ parser* manipulate(parser* in, state*(*manipulator)(state*), bool noc) {
 
     return np;
 }
-parser* cmanipulate(parser* in, state*(*manipulator)(state*)) {
+parser* cmanipulate(parser* in, manipfunc_t manipulator) {
     return manipulate(in, manipulator, false);
 }
 void deallocate_manipulate(parser* p) {
@@ -177,11 +178,11 @@ void deallocate_manipulate(parser* p) {
     return;
 }
 
-typedef struct {
-    void(*koroutine)(koroctx*);
+typedef struct koroitem {
+    koroutinefunc_t koroutine;
     bool noc;
 } koroitem;
-parser* korop(void(*koro)(koroctx*), bool noc) {
+parser* korop(koroutinefunc_t koro, bool noc) {
     koroitem* item = malloc(sizeof(koroitem));
     item->koroutine = koro;
     item->noc = noc;
@@ -226,7 +227,7 @@ state* run(parser* p, char* c) {
 state* evaluate_basic_parser(parser* p, char* c, state* i_state) {
     funcparse* dpf = (funcparse*) p->data;
     if (i_state->is_error && !dpf->noc) return i_state;
-    state*(*parse)(void*,char*,state*) = dpf->parserfunc;
+    parserfunc_t parse = dpf->parserfunc;
     state* n_state = parse(dpf->data, c, i_state);
     return n_state;
 }

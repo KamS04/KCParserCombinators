@@ -9,26 +9,26 @@ enum DataType {
     RES_ARR = 3
 };
 
-typedef union ResultUnion {
+typedef union DataUnion {
     char ch;
     int in;
     void* ptr;
-} ResultUnion;
+} DataUnion;
 
-typedef struct {
+typedef struct result {
     int data_type;
-    ResultUnion data;
+    DataUnion data;
 } result;
 
-typedef struct {
-    ResultUnion* arr;
+typedef struct ResArrD {
+    DataUnion* arr;
     // void** arr;
     int a_len;
     bool all_same_type;
     int all_type;
 } ResArrD;
 
-typedef struct {
+typedef struct state {
     bool is_error;
     char* error;
     int index;
@@ -37,11 +37,14 @@ typedef struct {
     bool error_from_malloc;
 } state;
 
-typedef struct {
+typedef void(*dallocresfunc_t)(result*);
+typedef char*(*stringerfunc_t)(result*,bool);
+
+typedef struct dealloc_str_data {
     int size;
     int* data_types;
-    void(**deallocers)(result*);
-    char*(**stringers)(result*, bool);
+    dallocresfunc_t* deallocers;
+    stringerfunc_t* stringers;
 } dealloc_str_data;
 
 dealloc_str_data* get_current_dealloc_data();
@@ -51,12 +54,12 @@ void set_global_dealloc_data(dealloc_str_data* d);
 void deallocate_result(result* res);
 void deallocate_state(state* st);
 
-ResArrD* dcreate_res_arr(ResultUnion* arr, int len, bool ast, int at);
-ResArrD* create_res_arr(ResultUnion* arr, int len);
-result* dcreate_resarr_result(ResultUnion* arr, int len, bool ast, int at);
-result* create_resarr_result(ResultUnion* arr, int len);
+ResArrD* dcreate_res_arr(DataUnion* arr, int len, bool ast, int at);
+ResArrD* create_res_arr(DataUnion* arr, int len);
+result* dcreate_resarr_result(DataUnion* arr, int len, bool ast, int at);
+result* create_resarr_result(DataUnion* arr, int len);
 
-result* create_result(int data_type, ResultUnion data);
+result* create_result(int data_type, DataUnion data);
 
 state* default_state();
 

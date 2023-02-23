@@ -5,10 +5,10 @@
 #include "util.h"
 
 result* create_char_result(char c) {
-    return create_result(CHAR, (ResultUnion){ .ch = c });
+    return create_result(CHAR, (DataUnion){ .ch = c });
 }
 
-state* _anyChar(void* _, char* target, state* i_state) {
+state* _anyChar(DataUnion _, char* target, state* i_state) {
     if (strlen(target) <= i_state->index) {
         char* err = malloc(32 * sizeof(char));
         return create_error_state(err, i_state->index);
@@ -18,12 +18,12 @@ state* _anyChar(void* _, char* target, state* i_state) {
 }
 parser* anyChar;
 
-typedef struct {
+typedef struct _csit {
     char find;
     char* cnf;
 } _csit;
-state* _charP(void* data, char* target, state* i_state) {
-    _csit* cs = (_csit*) data;
+state* _charP(DataUnion data, char* target, state* i_state) {
+    _csit* cs = data.ptr;
     if (target[i_state->index] == cs->find) {
         // SUCCCESS
         result* res = create_char_result(cs->find);
@@ -43,10 +43,10 @@ parser* charP(char c) {
     _csit* cs = malloc(sizeof(_csit));
     cs->find = c;
     cs->cnf = NULL;
-    return dcreate_parser(&_charP, cs);
+    return dcreate_parser(_charP, (DataUnion){ .ptr = cs });
 }
 
-state* _letP(void* _, char* target, state* i_state) {
+state* _letP(DataUnion _, char* target, state* i_state) {
     char sc = target[i_state->index];
     if (is_letter(sc)) {
         result* res = create_char_result(target[i_state->index]);
@@ -58,7 +58,7 @@ state* _letP(void* _, char* target, state* i_state) {
 }
 parser* letter;
 
-state* _digP(void* _, char* target, state* i_state) {
+state* _digP(DataUnion _, char* target, state* i_state) {
     char l = target[i_state->index];
     if (is_digit(l)) {
         result* res = create_char_result(l);
@@ -71,7 +71,7 @@ state* _digP(void* _, char* target, state* i_state) {
 parser* digit;
 
 void init_core_char_parsers() {
-    anyChar = create_parser(&_anyChar);
-    letter = create_parser(&_letP);
-    digit = create_parser(&_digP);
+    anyChar = create_parser(_anyChar);
+    letter = create_parser(_letP);
+    digit = create_parser(_digP);
 }

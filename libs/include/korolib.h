@@ -63,7 +63,7 @@
                     _KCTX->fin = true; \
                     return; }
 
-typedef struct {
+typedef struct koroctx {
     int state;
     void* yield;
     void* fin_result;
@@ -76,5 +76,7 @@ typedef struct {
 } koroctx;
 
 koroctx* default_kctx();
+
+typedef void(*koroutinefunc_t)(koroctx*);
 
 #endif

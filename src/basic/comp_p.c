@@ -7,8 +7,8 @@
 #include "mutarr.h"
 #include "log.h"
 
-state* _posP(void* data, char* target, state* i_state) {
-    parser* orig = (parser*) data;
+state* _posP(DataUnion data, char* target, state* i_state) {
+    parser* orig = data.ptr;
     state* first = evaluate(orig, target, i_state);
     if (first->is_error) {
         state* final = result_here(first, NULL);
@@ -18,11 +18,16 @@ state* _posP(void* data, char* target, state* i_state) {
     return first;
 }
 parser* possibly(parser* p) {
-    return ddcreate_parser(_posP, p, NULL, true);
+    return ddcreate_parser(_posP, (DataUnion){ .ptr = p }, NULL, true);
 }
 
-state* _eUP(void* data, char* target, state* i_state) {
-    parser* p = (parser*) data;
+typedef struct _euit {
+    bool cue;
+    parser* p;
+} _euit;
+state* _eUP(DataUnion data, char* target, state* i_state) {
+    _euit* it = data.ptr;
+    parser* p = it->p;
     int st = i_state->index;
 
     #ifdef SINGLE_THREADED_ONLY
@@ -51,7 +56,7 @@ state* _eUP(void* data, char* target, state* i_state) {
 
     int en = c_state->index;
     if (en >= tlen) {
-        if (data) {
+        if (it->cue) {
             n_state = evaluate(p, target, c_state);
             if (n_state->error) {
                 char* err = malloc(33 * sizeof(char));
@@ -62,18 +67,21 @@ state* _eUP(void* data, char* target, state* i_state) {
     char* sres = malloc((en-st+1) * sizeof(char));
     memcpy(sres, target+st, (en-st));
     sres[en-st] = '\0';
-    result* res = create_result(STRING, (ResultUnion){ .ptr = sres });
+    result* res = create_result(STRING, (DataUnion){ .ptr = sres });
     return create_result_state(res, en);
 }
 parser* everythingUntil(parser* p, bool check_till_end) {
-    return ddcreate_parser(_eUP, p, NULL, check_till_end);
+    _euit* it = malloc(sizeof(_euit));
+    it->p = p;
+    it->cue = check_till_end;
+    return ddcreate_parser(_eUP, (DataUnion){ .ptr = it }, NULL, false);
 }
 
-state* _aCE(void* data, char* target, state* i_state) {
-    parser* p = (parser*) data;
+state* _aCE(DataUnion data, char* target, state* i_state) {
+    parser* p = data.ptr;
     state* c_state = evaluate(p, target, i_state);
     if (c_state->is_error) {
-        result* res = create_result(CHAR, (ResultUnion){ .ch = target[i_state->index] });
+        result* res = create_result(CHAR, (DataUnion){ .ch = target[i_state->index] });
         return create_result_state(res, i_state->index + 1);
     }
     char* err = malloc(34 * sizeof(char));
@@ -81,15 +89,15 @@ state* _aCE(void* data, char* target, state* i_state) {
     return create_error_state(err, i_state->index);
 }
 parser* anyCharExcept(parser* p) {
-    return dcreate_parser(_aCE, p);
+    return dcreate_parser(_aCE, (DataUnion){ .ptr = p });
 }
 
 typedef struct _cit {
     int p_size;
     parser** parsers;
 } _cit;
-state* _cBP(void* data, char* target, state* i_state) {
-    _cit* it = (_cit*) data;
+state* _cBP(DataUnion data, char* target, state* i_state) {
+    _cit* it = data.ptr;
     parser** ps = it->parsers;
     state* s_state = NULL;
     for (int i = 0; i < it->p_size; i++) {
@@ -117,18 +125,18 @@ parser* choice(parser** parsers, int p_size) {
     _cit* it = malloc(sizeof(_cit));
     it->p_size = p_size;
     it->parsers = parsers;
-    return dcreate_parser(_cBP, it);
+    return dcreate_parser(_cBP, (DataUnion){ .ptr = it });
 }
 
-// typedef struct {
+// typedef struct _sopit {
 //     int
 // } _sopit;
-state* _sOP(void* data, char* target, state* i_state) {
-    _cit* it = (_cit*) data;
+state* _sOP(DataUnion data, char* target, state* i_state) {
+    _cit* it = data.ptr;
     parser** ps = it->parsers;
     state* s_state = i_state;
     // in this case every element will be a ptr
-    ResultUnion* resarr = malloc( it->p_size * sizeof(result*) );
+    DataUnion* resarr = malloc( it->p_size * sizeof(result*) );
     for (int i = 0; i < it->p_size; i++) {
         resarr[i].ptr = NULL;
     }
@@ -169,12 +177,12 @@ parser* sequenceOf(parser** parsers, int p_size) {
     for (int i = 0; i < p_size; i++) {
         it->parsers[i] = parsers[i];
     }
-    return dcreate_parser(_sOP, it);
+    return dcreate_parser(_sOP, (DataUnion){ .ptr = it });
 }
 
 
-state* _loA(void * data, char* target, state* i_state) {
-    state* t_state = evaluate( (parser*) data, target, i_state );
+state* _loA(DataUnion data, char* target, state* i_state) {
+    state* t_state = evaluate( data.ptr, target, i_state );
     if (t_state->is_error) {
         return t_state;
     }
@@ -184,10 +192,10 @@ state* _loA(void * data, char* target, state* i_state) {
     return t_state;
 }
 parser* lookAhead(parser* p) {
-    return dcreate_parser(_loA, p);
+    return dcreate_parser(_loA, (DataUnion){ .ptr = p });
 }
 
-mapresult* _bM(result* res, void *data) {
+mapresult* _bM(result* res, DataUnion data) {
     mapresult* mr = malloc(sizeof(mapresult));
     mr->dealloc_old = false;
     if (res->data_type != RES_ARR) {
@@ -197,14 +205,15 @@ mapresult* _bM(result* res, void *data) {
     }
 
     ResArrD* rad = (ResArrD*) res->data.ptr;
-    result** p = (result**) rad->arr;
-    mr->res = p[1];
+    DataUnion* p = rad->arr;
 
-    if (p[0] != NULL) {
-        deallocate_result(p[0]);
+    mr->res = p[1].ptr;
+
+    if (p[0].ptr != NULL) {
+        deallocate_result(p[0].ptr);
     }
-    if (p[2] != NULL) {
-        deallocate_result(p[2]);
+    if (p[2].ptr != NULL) {
+        deallocate_result(p[2].ptr);
     }
     kfree(p);
     return mr;
@@ -218,14 +227,14 @@ parser* between(parser* before, parser* get, parser* after) {
     return cmap(seq, _bM);
 }
 
-typedef struct {
+typedef struct _tpit {
     parser* p1;
     parser* p2;
 } _tpit;
-state* _sPB(void* data, char* target, state* i_state) {
-    _tpit* it = (_tpit*) data;
-    #define res_arr_type ResultUnion
-    ALLOCATE_SN(res_arr, 10, true, (ResultUnion){ .ptr = NULL });
+state* _sPB(DataUnion data, char* target, state* i_state) {
+    _tpit* it = data.ptr;
+    #define res_arr_type DataUnion
+    ALLOCATE_SN(res_arr, 10, true, (DataUnion){ .ptr = NULL });
     
     state* v_state = NULL;
     state* s_state = NULL;
@@ -241,7 +250,7 @@ state* _sPB(void* data, char* target, state* i_state) {
             e_state = v_state;
             break;
         }
-        APPEND(res_arr, (ResultUnion){ .ptr = v_state->result });
+        APPEND(res_arr, (DataUnion){ .ptr = v_state->result });
         LOG(puts("sepby: added to array"));
 
         s_state = evaluate(it->p2, target, v_state);
@@ -302,19 +311,19 @@ parser* sepBy(parser* get, parser* sep) {
     _tpit* it = malloc(sizeof(_tpit));
     it->p1 = get;
     it->p2 = sep;
-    return dcreate_parser(_sPB, it);
+    return dcreate_parser(_sPB, (DataUnion){ .ptr = it });
 }
 
-typedef struct {
+typedef struct ManyData {
     bool atleast1;
     parser* p;
     bool all_same_type;
     int all_type;
 } ManyData;
-state* _mP(void* data, char* target, state* i_state) {
-    #define res_arr_type ResultUnion
-    ALLOCATE_SN(res_arr, 10, 0, (ResultUnion){ .ptr = NULL });
-    ManyData* md = (ManyData*) data;
+state* _mP(DataUnion data, char* target, state* i_state) {
+    #define res_arr_type DataUnion
+    ALLOCATE_SN(res_arr, 10, 0, (DataUnion){ .ptr = NULL });
+    ManyData* md = data.ptr;
     parser* p = md->p;
 
     state* n_state = i_state;
@@ -327,7 +336,7 @@ state* _mP(void* data, char* target, state* i_state) {
             if (md->all_same_type) {
                 APPEND(res_arr, v_state->result->data);
             } else {
-                APPEND(res_arr, (ResultUnion){ .ptr = v_state->result });
+                APPEND(res_arr, (DataUnion){ .ptr = v_state->result });
             }
             if (n_state != i_state) {
                 if (md->all_same_type) {
@@ -371,7 +380,7 @@ parser* dmany(parser* p, bool atleast1, bool all_same_type, int all_type) {
     md->atleast1 = atleast1;
     md->all_same_type = all_same_type;
     md->all_type = all_type;
-    return dcreate_parser(_mP, md);
+    return dcreate_parser(_mP, (DataUnion){ .ptr = md });
 }
 parser* many(parser* p) {
     return dmany(p, 0, 0, 0);
