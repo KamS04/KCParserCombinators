@@ -25,7 +25,9 @@ void def_dealloc_resarr(result* res) {
             } else {
                 r = rad->arr[i].ptr;
             }
-            deallocate_result(r);
+            if (r != NULL) {
+                deallocate_result(r);                
+            }
         }
         kfree(rad->arr);
         kfree(rad);
